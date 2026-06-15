@@ -1,0 +1,142 @@
+{
+  "name": "nemesis-v2-omni-brain",
+  "version": "1.3.0",
+  "description": "Nemesis v2 — Rubick knowledge graph + Nemesis orchestrator. Full engineering intelligence suite: Ideation → Solutioning → Tech Spec pipeline, Brain memory, @Slash, Franco data collection, E2E testing, diagrams, docs, standup, tickets, and deploy validation.",
+  "author": "saurav.k@razorpay.com",
+  "commands": [
+    {
+      "name": "nemesis",
+      "description": "Nemesis orchestrator — intelligent routing to Ideation (overview), Solutioning (solution + risk), Tech Spec (docs), and Rubick (knowledge). Natural language interface for all Razorpay engineering tasks. Use for: any architecture, design, feature analysis, knowledge query, code understanding, or system design question.",
+      "source": "commands/nemesis.md"
+    },
+    {
+      "name": "brain",
+      "description": "Omni Brain memory agent — graph ops, ingestion, context retrieval, features, planning. Manages rubick.db knowledge graph with 715K nodes across 45 Razorpay services.",
+      "source": "commands/brain.md"
+    },
+    {
+      "name": "franco",
+      "description": "Universal data collector — pulls data from any source (Slack, Gmail, Drive, GitHub, DevRev, Figma, Calendar, local files, Rubick graph, repo skills) and saves to rubick.db via the learning pipeline. Auto-detects source type from URLs/IDs. Normalizes to FrancoDocument schema. Deduplicates on (source_type, source_id). Other skills invoke Franco for data collection instead of making raw MCP calls.",
+      "source": "commands/franco.md"
+    },
+    {
+      "name": "slash",
+      "description": "Query Razorpay's @slash knowledge bot via Slack — ask questions, deep dives, recall cached responses, scan channels. Uses channel C0B3U3Z2JG1. Queue-aware polling for deep responses.",
+      "source": "commands/slash.md"
+    },
+    {
+      "name": "silencer",
+      "description": "Phase 3 document generation agent. Creates Google Docs matching the exact Razorpay Tech Spec template (16 sections). Generates professional diagrams via Canva MCP. Reads from Ideation overview and Solutioning output.",
+      "source": "commands/silencer.md"
+    },
+    {
+      "name": "doc",
+      "description": "Create .docx tech specs and design docs locally using the Razorpay 16-section template — from nemesis output, brain context, or manual content. Uses python-docx, no Drive upload needed.",
+      "source": "commands/doc.md"
+    },
+    {
+      "name": "explain",
+      "description": "Payment flow explainer using step0-5 docs as knowledge base — answers questions, explains flows, generates docx, learns to Brain. Covers mandate lifecycle, offer evaluation, settlement, recurring payments.",
+      "source": "commands/explain.md"
+    },
+    {
+      "name": "review",
+      "description": "Code review, API audit, manager review, bug triage, deploy checklist — orchestrates engineering + razorpay + atlassian skills. Applies 8 Razorpay domain checks (idempotency, reconciliation, amount precision, PCI, etc.).",
+      "source": "commands/review.md"
+    },
+    {
+      "name": "diagram",
+      "description": "Generate architecture diagrams from Brain graph data — flow, arch, entity, impact, timeline, whiteboard, class. Uses Canva MCP (primary for polished output), Mermaid (structural), Excalidraw (whiteboard).",
+      "source": "commands/diagram.md"
+    },
+    {
+      "name": "designer",
+      "description": "Visual design agent — creates, references, and exports visual artifacts using Canva (professional), Mermaid (structural), Figma (reference), Excalidraw (whiteboard), and Blade (Razorpay design system). Supports iterative editing, Figma imports, mockup generation.",
+      "source": "commands/designer.md"
+    },
+    {
+      "name": "standup",
+      "description": "Daily standup, weekly reports, meeting prep, channel digests, announcements — aggregates Slack, GitHub, Calendar, Brain. Spawns standup-agent for parallel data collection.",
+      "source": "commands/standup.md"
+    },
+    {
+      "name": "tickets",
+      "description": "Jira/DevRev ticket management — create from specs, triage bugs, track milestones, search Confluence, sync Brain ↔ tickets. Primary consumer of all 5 Atlassian skills.",
+      "source": "commands/tickets.md"
+    },
+    {
+      "name": "db-validator",
+      "description": "Pre-deploy and payment state validator for Razorpay. Validates payment records, Splitz flags, DCS configs, and deployment status before feature releases. Three-layer: Watchtower, @Slash + Coralogix, Redash REST API.",
+      "source": "commands/db-validator.md"
+    },
+    {
+      "name": "scenario",
+      "description": "Test scenario generator — creates comprehensive test scenarios from feature context. Reads overview + solution artifacts, expert knowledge, and cross-project edges to produce happy path, edge case, integration, and regression scenarios.",
+      "source": "commands/scenario.md"
+    },
+    {
+      "name": "pipeline",
+      "description": "Pipeline orchestration controller — view and control the Nemesis feature pipeline. Shows phase completion status, lists features, runs specific phases, resets artifacts, and compares feature outputs.",
+      "source": "commands/pipeline.md"
+    },
+    {
+      "name": "plan",
+      "description": "Interactive daily planner, task manager, and personal assistant powered by Rubick. Daily planning, task tracking, feature context, missed communications, weekly reviews, focus sessions.",
+      "source": "commands/plan.md"
+    },
+    {
+      "name": "e2e",
+      "description": "E2E testing orchestrator for the Nemesis v2 feature pipeline (Phase 4). Automated test generation, execution via e2e-test-orchestrator or ROAST, and coverage review. Enriches Rubick with TestResult nodes.",
+      "source": "commands/e2e.md"
+    }
+  ],
+  "skills": [
+    {
+      "name": "omni-brain",
+      "description": "Central memory agent — Rubick knowledge graph (715K nodes, 45 projects), 4-phase Nemesis pipeline, 46 project experts, Franco data collection, @Slash integration",
+      "source": "SKILL.md"
+    }
+  ],
+  "agents": [
+    {
+      "name": "nemesis-agent",
+      "description": "Heavy analysis worker and skill orchestration delegate for Nemesis orchestrator. Runs Phase 1-3 pipeline steps, code tracing, @Slash queries, and risk analysis.",
+      "source": "agents/nemesis-agent.md"
+    },
+    {
+      "name": "project-expert-agent",
+      "description": "Per-project expert sub-agent that deeply reads a codebase and stores structured expertise in Rubick. Parameterized by project slug. Levels up (L1→L5) with each feature analysis.",
+      "source": "agents/project-expert-agent.md"
+    },
+    {
+      "name": "brain-ingest-agent",
+      "description": "Parallel ingestion worker for multi-source fetches — processes GitHub, Slack, Gmail, Drive, DevRev sources concurrently into rubick.db.",
+      "source": "agents/brain-ingest-agent.md"
+    },
+    {
+      "name": "silencer-agent",
+      "description": "Sub-agent for parallel section generation in Tech Spec doc creator. Each agent generates 3-5 sections of the Razorpay Tech Spec, delegating to engineering skills first.",
+      "source": "agents/silencer-agent.md"
+    },
+    {
+      "name": "e2e-expert-agent",
+      "description": "E2E testing specialist for Nemesis v2 Phase 4. Generates test code matching existing patterns, executes via orchestrator, and reviews coverage gaps introduced by feature changes.",
+      "source": "agents/e2e-expert-agent.md"
+    },
+    {
+      "name": "learn-agent",
+      "description": "Batch knowledge flush sub-agent for processing 5+ learning items without blocking the main session. Writes nodes/edges to rubick.db via learning pipeline.",
+      "source": "agents/learn-agent.md"
+    },
+    {
+      "name": "review-agent",
+      "description": "Parallel code review + API audit sub-agent — runs engineering skills concurrently for PR analysis with 8 Razorpay domain checks.",
+      "source": "agents/review-agent.md"
+    },
+    {
+      "name": "standup-agent",
+      "description": "Parallel standup data collection sub-agent — gathers Slack, Calendar, GitHub, Brain data concurrently for daily standups and weekly reports.",
+      "source": "agents/standup-agent.md"
+    }
+  ]
+}

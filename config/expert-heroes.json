@@ -1,0 +1,444 @@
+{
+  "_meta": {
+    "description": "Project Expert System — Dota 2 hero assignments per project",
+    "version": "1.0",
+    "created": "2026-05-19",
+    "schema": "Each entry maps a project slug to its hero, archetype, and initial state"
+  },
+  "archetypes": {
+    "gateway": {
+      "hero": "Ancient Apparition",
+      "hero_slug": "ancient-apparition",
+      "lore": "The cold embrace of routing — sees all traffic, decides where it goes",
+      "projects": ["pg-router", "edge", "relay", "route"]
+    },
+    "payment-core": {
+      "hero": "Phantom Assassin",
+      "hero_slug": "phantom-assassin",
+      "lore": "Strikes with lethal precision — critical path, one wrong move kills the payment",
+      "projects": ["payments-card", "payments-upi", "payments-bank-transfer", "payments-mandate", "payment-methods", "payments-nb-wallet"]
+    },
+    "platform": {
+      "hero": "Morphling",
+      "hero_slug": "morphling",
+      "lore": "Adapts form to any vessel — CPS adapts to every payment method dynamically",
+      "projects": ["cps", "charge-collections", "mozart"]
+    },
+    "monolith": {
+      "hero": "Wraith King",
+      "hero_slug": "wraith-king",
+      "lore": "The immortal skeleton — ancient, refuses to die, always comes back",
+      "projects": ["api"]
+    },
+    "offers": {
+      "hero": "Alchemist",
+      "hero_slug": "alchemist",
+      "lore": "Transmutes gold — transforms discounts, fees, pricing",
+      "projects": ["offers-engine", "optimizer-core"]
+    },
+    "frontend": {
+      "hero": "Puck",
+      "hero_slug": "puck",
+      "lore": "The faerie trickster — ephemeral, illusory, things aren't what they seem",
+      "projects": ["checkout", "dashboard"]
+    },
+    "infra": {
+      "hero": "Io",
+      "hero_slug": "io",
+      "lore": "The fundamental connection — binds everything together",
+      "projects": ["goutils", "integrations-go", "integrations-utils", "splitz", "vault"]
+    },
+    "comms": {
+      "hero": "Crystal Maiden",
+      "hero_slug": "crystal-maiden",
+      "lore": "Channels the frost — sends signals everywhere",
+      "projects": ["raven", "stork", "metro", "reminders"]
+    },
+    "risk": {
+      "hero": "Tidehunter",
+      "hero_slug": "tidehunter",
+      "lore": "The immovable anchor — blocks bad actors",
+      "projects": ["shield", "downtime-manager"]
+    },
+    "settlements": {
+      "hero": "Terrorblade",
+      "hero_slug": "terrorblade",
+      "lore": "The mirror of truth — reconciliation, what goes in must come out",
+      "projects": ["scrooge", "settlements", "ledger"]
+    },
+    "config": {
+      "hero": "Tinker",
+      "hero_slug": "tinker",
+      "lore": "Rearms and reconfigures — dynamic config, hot reload",
+      "projects": ["dcs", "cms", "bin-service", "apm-service"]
+    },
+    "domain": {
+      "hero": "Meepo",
+      "hero_slug": "meepo",
+      "lore": "Many bodies, one mind — many small services, one domain",
+      "projects": ["checkout-service", "magic-checkout-service", "customer-service", "tokens", "subscriptions"]
+    },
+    "recurring": {
+      "hero": "Undying",
+      "hero_slug": "undying",
+      "lore": "Endless decay and renewal — mandates that repeat forever",
+      "projects": ["emandate-service"]
+    },
+    "cross-border": {
+      "hero": "Spirit Breaker",
+      "hero_slug": "spirit-breaker",
+      "lore": "Charges across boundaries — cross-border payments",
+      "projects": ["payments-cross-border", "cross-border"]
+    },
+    "governance": {
+      "hero": "Keeper of the Light",
+      "hero_slug": "keeper-of-the-light",
+      "lore": "Illuminates the rules — governance and execution",
+      "projects": ["governor-executor", "terminals"]
+    },
+    "protocols": {
+      "hero": "Oracle",
+      "hero_slug": "oracle",
+      "lore": "Sees all futures — defines the contracts between services",
+      "projects": ["rpc"]
+    },
+    "batch": {
+      "hero": "Techies",
+      "hero_slug": "techies",
+      "lore": "Plants and detonates in bulk — batch processing and mock testing",
+      "projects": ["batch", "mock-gateway"]
+    },
+    "logic-interlink": {
+      "hero": "Razor",
+      "hero_slug": "razor",
+      "lore": "The Lightning Revenant — drains understanding from every service via Static Link, scans the entire architecture with Plasma Field, auto-targets the weakest break point with Eye of the Storm. Razor is the Razorpay Logic Expert: he doesn't belong to one service but interlinks them all, building cross-project logic chains and exposing where the current flows break.",
+      "abilities": {
+        "plasma_field": "Radial scan — maps all services in a feature's blast radius, discovering connections even 3+ hops away",
+        "static_link": "Knowledge drain — reads each service's code, steals its logic patterns, and stores them as cross-project understanding in Rubick",
+        "unstable_current": "Flow validation — detects broken invariants and purges incorrect assumptions by tracing actual code paths",
+        "eye_of_the_storm": "Break point targeting — automatically identifies the weakest/most critical break point in any multi-service flow"
+      },
+      "role": "Cross-project logic expert. Interlinks services, builds end-to-end flow understanding, identifies break points across architectural boundaries. Not assigned to any single project — operates across ALL projects in a feature.",
+      "projects": ["_meta_cross_project"],
+      "features_analyzed": [
+        {
+          "feature": "cfb-dfb-instant-offer-discount",
+          "services_linked": 15,
+          "break_points_found": 9,
+          "cross_project_edges_created": 24,
+          "date": "2026-05-21",
+          "phases_completed": ["grimstroke", "invoker"],
+          "invoker_stats": {
+            "code_changes": 11,
+            "config_changes": 2,
+            "files_touched": 18,
+            "c11_c12_eliminated": true,
+            "amendments_applied": 4,
+            "parallel_trace_agents": 5
+          }
+        }
+      ]
+    }
+  },
+  "leveling": {
+    "thresholds": {
+      "1": 0,
+      "2": 500,
+      "3": 1500,
+      "4": 3000,
+      "5": 5000
+    },
+    "level_names": {
+      "1": "Apprentice",
+      "2": "Journeyman",
+      "3": "Adept",
+      "4": "Master",
+      "5": "Grand Master"
+    },
+    "xp_actions": {
+      "initial_deep_read": 300,
+      "feature_analysis": 200,
+      "solution_designed": 300,
+      "risk_found": 150,
+      "user_confirmed": 100,
+      "slash_validated": 50,
+      "contradiction_penalty": -200
+    }
+  },
+  "project_to_hero": {
+    "pg-router": "ancient-apparition",
+    "edge": "ancient-apparition",
+    "relay": "ancient-apparition",
+    "route": "ancient-apparition",
+    "payments-card": "phantom-assassin",
+    "payments-upi": "phantom-assassin",
+    "payments-bank-transfer": "phantom-assassin",
+    "payments-mandate": "phantom-assassin",
+    "payment-methods": "phantom-assassin",
+    "cps": "morphling",
+    "charge-collections": "morphling",
+    "mozart": "morphling",
+    "api": "wraith-king",
+    "offers-engine": "alchemist",
+    "optimizer-core": "alchemist",
+    "checkout": "puck",
+    "dashboard": "puck",
+    "goutils": "io",
+    "integrations-go": "io",
+    "integrations-utils": "io",
+    "splitz": "io",
+    "vault": "io",
+    "raven": "crystal-maiden",
+    "stork": "crystal-maiden",
+    "metro": "crystal-maiden",
+    "reminders": "crystal-maiden",
+    "shield": "tidehunter",
+    "downtime-manager": "tidehunter",
+    "scrooge": "terrorblade",
+    "settlements": "terrorblade",
+    "ledger": "terrorblade",
+    "dcs": "tinker",
+    "cms": "tinker",
+    "bin-service": "tinker",
+    "apm-service": "tinker",
+    "checkout-service": "meepo",
+    "magic-checkout-service": "meepo",
+    "customer-service": "meepo",
+    "tokens": "meepo",
+    "subscriptions": "meepo",
+    "emandate-service": "undying",
+    "payments-cross-border": "spirit-breaker",
+    "cross-border": "spirit-breaker",
+    "governor-executor": "keeper-of-the-light",
+    "terminals": "keeper-of-the-light",
+    "payments-nb-wallet": "phantom-assassin",
+    "rpc": "oracle",
+    "batch": "techies",
+    "mock-gateway": "techies"
+  },
+  "hero_evolution": {
+    "_meta": "XP earned by heroes during DFB/CFB feature analysis + Invoker v1 solutioning (2026-05-21) + Invoker v2 solutioning (2026-05-22)",
+    "ancient-apparition": {
+      "project": "pg-router",
+      "xp_earned": 5550,
+      "level": 5,
+      "level_name": "Grand Master",
+      "actions": [
+        "initial_deep_read(+300)", "feature_analysis(+200)", "risk_found(+150)",
+        "solution_designed_v1(+300)", "invoker_trace(+200)", "solution_designed_v2(+300)",
+        "level3_module1_lifecycle(+300)", "level3_module2_callback_auth(+300)",
+        "level3_module3_errors(+300)", "level3_module4_optimizer(+300)", "level3_module5_workers(+300)",
+        "level4_arch1_downstream_services(+300)", "level4_arch2_splitz_inventory(+300)",
+        "risk_found_circuit_breaker(+150)", "risk_found_dead_splitz(+150)", "risk_found_goroutine_panic(+150)",
+        "risk_found_double_cps_fetch(+150)", "risk_found_force_refund_contract(+150)",
+        "risk_found_order_payments_dupe(+150)", "risk_found_timeout_units(+150)",
+        "risk_found_wda_fallback(+150)", "risk_found_autocapture_v2_fallback(+150)",
+        "risk_found_mpc_flag(+150)",
+        "slash_q1_failure_modes(+50)", "slash_q2_outbox_relay(+50)",
+        "slash_q3_gateway_timeouts(+50)", "slash_q4_cps_create_vs_capture(+50)",
+        "slash_q5_migration_efforts(+50)"
+      ],
+      "knowledge_gained": [
+        "fee_breakup_type.go: 8 amountFields, discount_amount missing (DFB-2) [v1]",
+        "contracts/requests.go: PaymentV1Request struct lacks DiscountAmount (DFB-5) [v1]",
+        "validators/create.go: amount validation doesn't account for discount (DFB-6)",
+        "7-hop fee chain: Browser -> pg-router -> CPS -> charge-collections -> CPS -> pg-router -> Browser",
+        "Splitz prerequisites: PaymentCalculateFeesApiBypassCard, PaymentCalculateFeesApiBypassNetbanking",
+        "[v2-CORRECT] paymentValidator struct (base.go:11-17): add OffersEngineService field",
+        "[v2-CORRECT] ValidatePaymentV1AgainstOrderForPaymentCreate (create.go:325): call FetchDiscount for DFB/CFB+offer_id",
+        "[v2-CORRECT] amountMismatchRule signature: add offerDiscount int64 param; formula: payment-fee+discount=order",
+        "[v2-CORRECT] offersEngineService on Core (core.go:167) must be wired to paymentValidator",
+        "[v2-CORRECT] FetchDiscount interface: internal/offers_engine/interface.go:83-84",
+        "[v2-CORRECT] CreatePaymentOfferEntity is defined in pg-router interface but NEVER called — method services handle it",
+        "[v2-CORRECT] OE is fail-closed at create time: 500 if OE down for DFB/CFB+offer",
+        "[L3] Payment state machine: created->authorized->captured->refunded, ALL state in CPS, pg-router owns only order_payments MySQL table",
+        "[L3] order_payments table: payment_id(PK) + service(char10) + merchant_key(char50) + order_id - core routing index",
+        "[L3] ProcessCallback: AES-HMAC hash verify -> Redis mutex on OrderID -> CPS callback -> auto-capture check -> post-process",
+        "[L3] Dual mutex on capture: payment-level (public path) + order-level (always), both Redis-backed",
+        "[L3] PostProcessingCapture: supports discount, releasedAmount (pre-auth), convenienceFee, CFB/PFB fee-bearer adjustments",
+        "[L3] MPC partial capture: skip_update_order_status_to_paid metadata flag from CPS blocks order.status=PAID",
+        "[L3] Auto-capture V2: AutoCaptureV2Flow splitz gate, 12+ decision nodes, blocks ACH/POS/expired/linked payments",
+        "[L3] Timeout architecture: default=720min, BankTransfer/ACH custom, NB-corp=DCS config or 5 days, merchant custom_timeout",
+        "[L3] Error system: 360+ PGPR codes, 10 error classes, class.ErrXxx.New(codes.PGPRxxxxxx) pattern",
+        "[L3] Worker pattern: TOPIC env var -> DomainEventConsumer -> processor factory switch",
+        "[L3] Outbox relay: transactional outbox via pg-sdk outboxer.Client on writer DB, deployed helmfile-only",
+        "[L4] Optimizer flow: RAAS feature required, selectProvider HTTP call, IsOptimizerProvider splitz, RouteViaOptimizerCps flag",
+        "[L4] isOptimizerSvcAllowed always returns true (Splitz block commented out) - no kill-switch",
+        "[L4] 130+ Splitz treatment constants, SplitzExperiments config struct with per-env IDs",
+        "[L4] Downstream services: only Ledger SDK has Hystrix CB, all others plain HTTP with 2-retry backoff",
+        "[L4] CPS has 25+ payment operations (create/callback/capture/timeout/verify/fetch/refund/OTP/DCC/ForceAuth etc)",
+        "[L4] normalizeFeeBearer: maps int/string/proto-enum to canonical - CPS returns different formats per method service",
+        "[L4] force_refund_at silent contract: Optimizer CPS can set refund_at to override auto-capture timing",
+        "[L5] isPassportAuth false for: internal service calls, recurring subsequent payments, bank_transfer from API",
+        "[L5] Order creation hits checkout-service or pg-router directly; UpdateOrderWithAPIFallback uses API monolith as fallback",
+        "[L5] @Slash queries sent: 5 questions on failure modes, outbox-relay, gateway timeouts, CPS create vs capture, migration efforts"
+      ]
+    },
+    "phantom-assassin": {
+      "project": "payments-card + payments-nb-wallet",
+      "xp_earned": 5350,
+      "level": 5,
+      "level_name": "Grand Master",
+      "actions": [
+        "initial_deep_read(+300)", "feature_analysis(+200)", "solution_designed_v1(+300)",
+        "slash_validated(+50)", "invoker_trace(+200)", "amendment_a1_identified(+150)",
+        "solution_designed_v2(+300)",
+        "level3_module1_payment_lifecycle(+300)", "level3_module2_callback_autocapture(+300)",
+        "level3_module3_fee_bearer_resolution(+300)", "level3_module4_offer_capture_flow(+300)",
+        "level3_module5_errors_workers_events(+300)", "level4_arch1_core_struct_icore(+300)",
+        "level4_arch2_splitz_experiments(+150)",
+        "risk_found_double_oe_call_at_capture(+150)", "risk_found_offer_id_prefix_dupe(+150)",
+        "risk_found_force_platform_override(+150)", "risk_found_convenience_fee_inflate(+150)",
+        "risk_found_lock_race_validate_vs_acquire(+150)",
+        "level4_arch3_pricing_sdk_deep(+300)", "level4_arch4_router_service(+150)",
+        "level3_module6_verify_input_contracts(+200)", "level5_pg_sdk_ledger(+50)",
+        "risk_found_use_order_amount_for_fee_calc(+150)", "risk_found_verify_amount_mismatch_dfb(+150)"
+      ],
+      "knowledge_gained": [
+        "[v1] core/create.go: isPlatformFeeBearer() guard blocks DFB CAPTURE (DFB-7)",
+        "[v1] IPayment.GetFees() NOT GetFee() in payments-card",
+        "[v2-CORRECT] AMENDMENT A1: checkout pre-applies discount for DFB/CFB (sends 9531=9000+531)",
+        "[v2-CORRECT] validateOfferAndApplyDiscount (nb-wallet core.go:227): no fee_bearer guard → sets 9531-1000=8531 WRONG",
+        "[v2-CORRECT] validateAndApplyOffer (card validate.go:452): sets 9531-1000=8531 WRONG for DFB/CFB",
+        "[v2-CORRECT] Fix: add feeBearer guard — call OE + CreatePaymentOfferEntity but NOT pay.SetAmount()",
+        "[v2-CORRECT] isOfferAmountInvalid (nb-wallet capture.go:434): PFB-only guard removed + fee subtraction added",
+        "[v2-CORRECT] validateOfferApplication (card capture.go:592): PFB-only guard removed + payment.GetFees() subtraction",
+        "[v2-CORRECT] Capture formula: payment_amount + discount - fee = order_amount (9531+1000-531=10000)",
+        "[v2-CORRECT] DFB resolves to fee_bearer=customer on payment entity (NOT dynamic at capture time)",
+        "[v2-CORRECT] auto-capture path (nb-wallet callback.go:92-96) already correct: subtracts fee before ValidateCaptureRequest",
+        "[v2-CORRECT] payment_offers written by ValidateOfferAndGetDiscount (nb-wallet offers.go:136) — runs even in v2 fix",
+        "[v2-CORRECT] payments-card: new validateOfferWithoutApplyingDiscount method calls compileOffers but no SetAmount",
+        "[L3] Payment lifecycle: Build() (core.go:72)→validateOfferAndApplyDiscount(line 160)→Create(); state: created→authorized→captured→refunded",
+        "[L3] DFB NOT set at create: core.go:110 guards if feeBearer!=FeeBearerDynamic; set later via UpdatePaymentWithPricingDetails() from pricing SDK",
+        "[L3] FeeBearer uint8 in DB: GetBearerString(0)=platform,(1)=customer,(2)=dynamic; SetFeeBearer stores via GetBearerValue()",
+        "[L3] Auto-capture path: callback.go:92-94 subtracts fee for FeeBearerCustomer BEFORE ValidateCaptureRequest — already correct for DFB",
+        "[L3] Double OE call at capture: isOfferAmountInvalid() (capture.go:435) AND ValidatePaymentCapture() (line 305) both called; second uses raw amount without DFB fee subtraction",
+        "[L3] isOfferAmountInvalid (capture.go:435): PFB-only guard GetFeeBearer()!=FeeBearerPlatform→false; formula: paymentAmount+discount-convFee!=orderAmount (missing DFB fee subtraction)",
+        "[L3] validateCaptureAmount (line 313): fee=GetFee() if FeeBearerCustomer; returns amount!=(GetAmount()-fee) — separate from offer check",
+        "[L3] offers.go ValidateOfferAndGetDiscount(): facts→benefits→discount→guard(discount>amount→error)→if !isDiscountApplicable→discount=0→CreatePaymentOfferEntity(); stale comment 'not for CFB/DFB'",
+        "[L3] offers.go FetchDiscountIfApplicable() (line 166): GetInstantDiscountFromPaymentID()→&discount if applied, else nil",
+        "[L3] getOfferIDWithSign() (offers.go:198): adds 'offer_' prefix if not present — verify pg-router not double-prefixing offer_id",
+        "[L3] UpdatePaymentWithPricingDetails() (common.go:249): force-platform override at lines 263-265 if feeResponse.FeeBearer==platform OR existing==platform",
+        "[L3] Input struct (contract/request/input.go:12): ConvenienceFee+ConvenienceFeeGst fields for DFB; OfferID field present; Amount uint64 with custom JSON unmarshal",
+        "[L3] CheckForAmountMismatch (verify.go:24): compares payment.GetAmount() with res.Data.Amount — no fee/discount correction at verify time",
+        "[L3] 12 payment methods: NB, Wallet, Emandate-Reg, Emandate-Debit, Cardless-EMI, Paylater, App, Gift-Cards, FPX, DuitNow, PayNow, Razorpay-Account",
+        "[L3] pg-ack-worker: Kafka consumer for pg-sdk ledger ack events; PushLedgerEvent gated by Splitz RzpInternalAPICutOff (CLS takeover)",
+        "[L4] pricingsdk.methodSupportedOnPricingSdk={NB, Wallet, FPX, DuitNow}; Cards+UPI use API pricing path — not pricing SDK",
+        "[L4] FetchPricingInformation() (pricingsdk/pricing.go:49): Redis cache-first key=pricing_response_from_sdk_{id}_data, TTL=24h (PricingCacheTTL ctx override); 3 retries 100ms backoff",
+        "[L4] getCCSdkPaymentModel() (line 134): CRITICAL — DFB fee+tax=0 override REMOVED (lines 201-210 commented out); DFB now sends actual fee+tax to pricing SDK (recent fix)",
+        "[L4] validateFees() (pricingsdk/pricing.go:228): skips for FeeBearerCustomer AND postpaid; DFB resolves to customer at capture → effectively skipped",
+        "[L4] shouldUseOrderAmountForFeeCalculation: Splitz UseOrderAmountForFeeCalculation gate — if ON, uses order.Amount for fee calc; DFB RISK if Cleartrip has this ON",
+        "[L4] SmartRouter.GetTerminals(): POST /v1/route_authn/, basic auth (Key+Secret); 5xx→CodeServerErrorNbplusPaymentServiceFailure; response []common.Terminal; OpenTracing child span",
+        "[L4] ICore interface (processor/core.go): 10 operations; Core struct: PaymentCore, EntityOriginCore, EventStreamingClient, SplitzClient, PaymentAnalytics",
+        "[L4] 22 Splitz treatment constants: ConvenienceFeeAmountInflate (inflates NB+INR amount), RzpInternalAPICutOff, UseOrderAmountForFeeCalculation, EnableNbplusEventStreaming",
+        "[L4] pg-sdk ledger: singleton PGSdkLedgerClient via NewPGSDKLedgerServiceClient (pg-sdk/service.go:24); transactional outbox pattern on writer DB",
+        "[L5] Deploy: Spinnaker pipeline razorpay/payments-nb-wallet → canary → promote; E2E via gh workflow run e2e.yml -f branch_name=<branch>; SLIT via slit.yml; Gatekeeper /gatekeeper recheck",
+        "[L5] RISK: UseOrderAmountForFeeCalculation Splitz for Cleartrip — if ON, fee calc on order.Amount(10000) not payment.Amount(9531) → fee=200 not 531 → DFB formula broken. Verify Cleartrip config pre-deploy.",
+        "[L5] RISK: CheckForAmountMismatch (verify.go:24) uses raw payment.Amount — if SetAmount() was incorrectly called (pre-fix bug), verify can false-positive for DFB+discount",
+        "[L5] RISK: UpdatePaymentWithPricingDetails force-platform (common.go:263-265) can override DFB→customer resolution if pricing SDK returns feeBearer=platform",
+        "[L5] RISK: getOfferIDWithSign() adds 'offer_' prefix; if pg-router also prefixes before sending to nb-wallet, IDs double-prefix as 'offer_offer_xxx' in payment_offers table",
+        "[L5] RISK: ValidateCaptureRequest checks payment status WITHOUT Redis lock; lock only acquired in CapturePayment() outer — status check window is un-serialized"
+      ]
+    },
+    "morphling": {
+      "project": "cps",
+      "xp_earned": 500,
+      "level": 2,
+      "level_name": "Journeyman",
+      "actions": ["initial_deep_read(+300)", "feature_analysis(+200)"],
+      "knowledge_gained": [
+        "responses.go:64: OfferResponse.Discount field already exists (no CPS changes needed)",
+        "CPS does NOT compute discounts — just passes through pg-router data",
+        "charge-collections is pure MDR rate plan store (zero amount awareness)"
+      ]
+    },
+    "alchemist": {
+      "project": "offers-engine",
+      "xp_earned": 1000,
+      "level": 2,
+      "level_name": "Journeyman",
+      "actions": ["initial_deep_read(+300)", "feature_analysis(+200)", "risk_found(+150)", "slash_validated(+50)", "solution_designed(+300)"],
+      "knowledge_gained": [
+        "BlockOfferCreation gates CFB by design, needs DFB flag change",
+        "CreatePaymentOfferEntity is IDEMPOTENT (returns discount=0 on 2nd call for same payment_id)",
+        "SKU-based offers with multi-SKU support",
+        "Go microservice with gRPC interface to pg-router and checkout-service",
+        "C10: DCS config flip only — block_offer_creation=false for DFB merchants",
+        "server.go:218-228 is the sole gating code, no code change needed"
+      ]
+    },
+    "puck": {
+      "project": "checkout",
+      "xp_earned": 1150,
+      "level": 2,
+      "level_name": "Journeyman",
+      "actions": ["initial_deep_read(+300)", "feature_analysis(+200)", "risk_found(+150)", "solution_designed(+300)", "invoker_trace(+200)"],
+      "knowledge_gained": [
+        "getMerchantOffers.ts:82-91: CFB filter (by design, CFB-1)",
+        "ALLOWED_KEYS = 4 keys, discount_amount missing (DFB-3)",
+        "helpers/index.ts: no label/rendering for discount (DFB-4)",
+        "FeeBearer.svelte: handles fee display + payment submission",
+        "C6: Add 'discount_amount' to ALLOWED_KEYS (constants/index.ts:21-26)",
+        "C7a: Add discount_amount label to displayLabels in helpers/index.ts:237-242",
+        "C7b: 8 i18n locale files updated (en, hi, ben, mar, tam, tel, kan, guj)",
+        "C7c: FeeBearer.svelte:309-311 green '- ' prefix for discount line"
+      ]
+    },
+    "wraith-king": {
+      "project": "api",
+      "xp_earned": 800,
+      "level": 2,
+      "level_name": "Journeyman",
+      "actions": ["initial_deep_read(+300)", "feature_analysis(+200)", "solution_designed(+300)"],
+      "knowledge_gained": [
+        "PHP monolith handles DFB when Splitz gates OFF",
+        "OrderController, PaymentProcessor, FeeBearerHelper — Phase 2 scope",
+        "Same logical bugs as Go path, different code",
+        "C13a: Processor.php:2627-2638 — recalculate fee after discount",
+        "C13b: DB flag removal — remove block_offer_creation for DFB merchants",
+        "C13c: Processor.php:9393-9472 — recalculate DFB fees after setAmount",
+        "C13d: Processor.php:13037-13075 — verifyProvidedFee discount awareness",
+        "PHP root cause is ORDERING: fee calc BEFORE discount (unlike Go's explicit guards)"
+      ]
+    },
+    "tinker": {
+      "project": "dcs",
+      "xp_earned": 500,
+      "level": 2,
+      "level_name": "Journeyman",
+      "actions": ["feature_analysis(+200)", "solution_designed(+300)"],
+      "knowledge_gained": [
+        "DCS merchant config: block_offer_creation (boolean, per-merchant)",
+        "offers-engine/internal/offer/server.go:223: if cfg.GetBlockOfferCreation() → reject offer",
+        "[v2-CORRECT] C1 = config flip only: block_offer_creation=false for target merchant (Cleartrip mid: DuNIllLxEsjtRn)",
+        "No code changes to DCS or offers-engine server.go needed",
+        "Instant rollback: flip back to true in < 60 seconds",
+        "Other DFB/CFB merchants keep block_offer_creation=true until individually enabled"
+      ]
+    },
+    "razor": {
+      "project": "_meta_cross_project",
+      "xp_earned": 2300,
+      "level": 3,
+      "level_name": "Adept",
+      "actions": ["initial_deep_read(+300)", "feature_analysis(+200)", "solution_designed_v1(+300)", "risk_found(+150)", "risk_found(+150)", "risk_found(+150)", "slash_validated(+50)", "user_confirmed(+100)", "slash_validated(+50)", "slash_validated(+50)", "invoker_v1_orchestrated(+300)", "invoker_c11_eliminated(+100)", "invoker_c12_eliminated(+100)", "invoker_v2_orchestrated(+300)"],
+      "knowledge_gained": [
+        "15-service architecture mapped for DFB/CFB+offers flow",
+        "9 break points identified (DFB-1..8, CFB-1)",
+        "[v1] 13 fixes designed (C1..C13) across 5 services — SUPERSEDED by v2",
+        "[v2-CORRECT] 6 changes (C1-C6) across 4 targets (DCS, pg-router, nb-wallet, card)",
+        "[v2-CORRECT] Amendment A1: checkout pre-applies discount → method service double-subtract bug",
+        "[v2-CORRECT] Deploy sequence: DCS flip → pg-router → nb-wallet → card",
+        "[v2-CORRECT] Create formula: payment−fee+discount=order (9531−531+1000=10000)",
+        "[v2-CORRECT] Capture formula: payment+discount−fee=order (9531+1000−531=10000)",
+        "[v2-CORRECT] OE fail-closed at pg-router create time for DFB/CFB+offer",
+        "[v2-CORRECT] payment_offers written by method service OE call even in v2 (not skipped)",
+        "Splitz prerequisites: PaymentCalculateFeesApiBypassCard + PaymentCalculateFeesApiBypassNetbanking",
+        "DFB payment entity has fee_bearer=customer (NOT dynamic) at capture time",
+        "NB-wallet auto-capture (callback.go:92) already subtracts fee → no change",
+        "PHP Phase 2: out of scope, awaiting human decision",
+        "INVOKER v2: 2026-05-22, 6 changes, 1 amendment, exact diffs, solution.md complete"
+      ]
+    }
+  }
+}

@@ -1,0 +1,48 @@
+# Workspace (runtime data, user-specific — rebuilt via init + migration)
+workspace/
+
+# Export archives
+nemesis-brain.tar.gz
+*.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Node
+node_modules/
+package-lock.json
+
+# Environment / secrets
+.env
+.env.*
+credentials.json
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code local settings (user-specific permissions)
+.claude/settings.local.json
+.claude/worktrees/
+.claude/launch.json
+
+# Accidental SQLite files at root
+/--help*
+/--type
+/init
+/stats
+
+# OS
+.DS_Store
+Thumbs.db

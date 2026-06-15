@@ -1,0 +1,19 @@
+# === Core (brain/ package) ===
+networkx>=3.0
+
+# === Legacy scripts (old rubick_*.py, api_server.py) ===
+flask>=3.0
+python-docx>=1.0
+pydantic>=2.0
+fastapi>=0.115
+uvicorn>=0.32
+sse-starlette>=2.0
+python-multipart>=0.0.9
+
+# === Vector search (optional — lazy-loaded by brain/semantic/) ===
+# Uncomment if you want vector similarity search:
+# lancedb>=0.4
+# sentence-transformers>=3.0
+
+# === Legacy vector (deprecated — kept for old scripts) ===
+# qdrant-client>=1.12

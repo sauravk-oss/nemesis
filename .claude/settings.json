@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kubectl logs *)",
+      "Bash(kubectl get pods *)",
+      "Bash(kubectl get *)",
+      "Bash(mkdir -p *)",
+      "Bash(echo * >> *)",
+      "Bash(echo *)",
+      "Bash(grep * *)",
+      "Bash(grep -c *)",
+      "Bash(grep -i *)",
+      "Bash(wc -l *)",
+      "Bash(ls -lh *)",
+      "Bash(sleep *)",
+      "Bash(date *)",
+      "Bash(cat *)",
+      "Bash(python3 scripts/*)",
+      "Bash(python3 *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git status *)",
+      "Bash(git show *)",
+      "Bash(gh pr *)",
+      "Bash(gh search *)"
+    ]
+  }
+}
