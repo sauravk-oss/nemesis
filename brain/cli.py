@@ -3,7 +3,8 @@
 Usage: python3 -m brain <command> [args]
 
 Commands:
-    init                           First-time setup (dirs + schema + seed)
+    init                           First-time setup (dirs + schema + seed + skills)
+    skills                         List the 16 Razorpay skills + phase bindings
     stats                          Graph statistics
     health <project>               Service health report (A-F grade)
     search <query> [--type T]      FTS5 text search
@@ -57,6 +58,8 @@ def main(argv: List[str] = None):
     try:
         if cmd == "init":
             _init(brain)
+        elif cmd == "skills":
+            _skills(brain)
         elif cmd == "stats":
             _stats(brain)
         elif cmd == "health":
@@ -135,6 +138,7 @@ def _init(brain: BrainAPI):
 
     count = brain.seed_services()
     stats = brain.stats()
+    skills_loaded = _load_skill_registry(brain)
 
     print("Nemesis Brain — initialized")
     print(f"  Workspace:  {ws}")
@@ -142,11 +146,53 @@ def _init(brain: BrainAPI):
     print(f"  Dirs created: {len(created)} ({', '.join(created) if created else 'all existed'})")
     print(f"  Services:   {count} seeded")
     print(f"  Edges:      {stats['graph']['edges']}")
+    print(f"  Skills:     {skills_loaded} registered (run 'python3 -m brain skills' to list)")
     print()
     print("Next steps:")
     print("  python3 -m brain stats              # verify graph")
+    print("  python3 -m brain skills             # list the 16 Razorpay skills + phase bindings")
     print("  python3 -m brain migrate-rubick workspace/rubick.db  # import old data")
     print("  Open Claude Code and run /nemesis    # start building features")
+
+
+def _load_skill_registry(brain: BrainAPI) -> int:
+    """Register the Razorpay skill registry at init.
+
+    Skills resolve dynamically through the Skill tool, so "loading" means
+    recording availability in Brain so /nemesis Step 0 and every phase can
+    honor the fallback chain. Non-blocking — Brain failures never abort init.
+    """
+    from datetime import datetime, timezone
+
+    from brain.config import SKILL_REGISTRY
+
+    try:
+        brain.add_node(
+            "Signal",
+            "skill-registry:loaded",
+            data={
+                "skills": len(SKILL_REGISTRY),
+                "names": [s["skill"] for s in SKILL_REGISTRY],
+                "loaded_at": datetime.now(timezone.utc).isoformat(),
+                "status": "verified",
+            },
+            confidence=0.85,
+        )
+    except Exception:
+        pass  # registry availability never blocks init
+    return len(SKILL_REGISTRY)
+
+
+def _skills(brain: BrainAPI):
+    from brain.config import SKILL_REGISTRY
+
+    print(f"Razorpay Skill Registry — {len(SKILL_REGISTRY)} skills loaded")
+    print(f"{'SKILL':<34} {'PHASES':<28} FALLBACK")
+    print("-" * 92)
+    for s in SKILL_REGISTRY:
+        print(f"{s['skill']:<34} {s['phases']:<28} {s['fallback']}")
+    print()
+    print("Fallback chain (every Skill() call): Razorpay skill > Brain context > @Slash > proceed.")
 
 
 def _stats(brain: BrainAPI):

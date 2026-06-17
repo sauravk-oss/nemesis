@@ -5,13 +5,18 @@ Parallel review worker for multi-skill PR analysis.
 Spawned by the `/review` skill to run engineering and domain review delegations simultaneously,
 preventing the main conversation from blocking on sequential skill calls.
 
-## Capabilities
+## Capabilities (5-Dimension Audit)
 - Run `engineering:code-review` with diff context for code quality, patterns, and bugs
 - Run `compass:razorpay-api-review` for endpoint validation against Razorpay API standards
 - Run `engineering:testing-strategy` for test coverage analysis and gap detection
+- Run `pre-mortem` for structured risk discovery on the change (feeds RPN scoring)
+- Run `engineering:deploy-checklist` for deployment readiness and rollback safety
 - Cross-check findings against Brain Requirements and RiskItems in rubick.db
 - Synthesize parallel skill outputs into a unified checklist with pass/warn/fail counts
 - Update node confidence in rubick.db based on review findings
+
+Every skill call honors the standard fallback chain: **Razorpay skill > Brain context >
+@Slash > proceed with a noted gap.** Never block the review on a skill failure.
 
 ## When to Spawn
 The `/review` skill spawns this agent when:
@@ -33,7 +38,7 @@ The `/review` skill spawns this agent when:
     "risk_items": ["Duplicate callback handling", "Timeout on bank response"],
     "arch_decisions": ["Retry via async queue", "Callback dedup by UTR"]
   },
-  "delegate_skills": ["engineering:code-review", "compass:razorpay-api-review", "engineering:testing-strategy"],
+  "delegate_skills": ["engineering:code-review", "compass:razorpay-api-review", "engineering:testing-strategy", "pre-mortem", "engineering:deploy-checklist"],
   "db_path": "workspace/rubick.db",
   "razorpay_domain_checks": true
 }
@@ -41,11 +46,14 @@ The `/review` skill spawns this agent when:
 
 ### Process
 
-#### pr_review
+#### pr_review (5-dimension audit)
 1. Invoke `engineering:code-review` with diff + brain context — code quality, patterns, bugs
 2. If endpoints modified: invoke `compass:razorpay-api-review` with endpoint specs — API standards
 3. Invoke `engineering:testing-strategy` with changed functions — test coverage gaps
-4. If `razorpay_domain_checks`: apply 8 domain patterns:
+4. Invoke `pre-mortem` with the change summary — surface failure scenarios; score each as
+   RPN (Severity x Probability x Detectability). RPN > 200 = mandatory mitigation, > 500 = block.
+5. Invoke `engineering:deploy-checklist` — deployment readiness, rollback path, flag gating
+6. If `razorpay_domain_checks`: apply 8 domain patterns:
    - Idempotency keys on mutating endpoints
    - Reconciliation hooks for async flows
    - Amount handling (paise, no floats, overflow checks)
@@ -54,9 +62,9 @@ The `/review` skill spawns this agent when:
    - Rate limiting on public endpoints
    - Timeout configuration on external calls
    - Feature flag gating on new behaviour
-5. Cross-check: for each Brain Requirement, verify if the PR implements, validates, or contradicts it
-6. Deduplicate findings across skills (same finding from 2+ skills = higher severity)
-7. Compile unified checklist with per-category pass/warn/fail counts
+7. Cross-check: for each Brain Requirement, verify if the PR implements, validates, or contradicts it
+8. Deduplicate findings across skills (same finding from 2+ skills = higher severity)
+9. Compile unified checklist with per-category pass/warn/fail counts (incl. risk + deploy dimensions)
 
 #### diff_review
 1. Parse diff into per-file change sets
@@ -83,7 +91,8 @@ The `/review` skill spawns this agent when:
 {
   "command": "pr_review",
   "target": "razorpay/emandate-service#456",
-  "skills_invoked": ["engineering:code-review", "compass:razorpay-api-review", "engineering:testing-strategy"],
+  "skills_invoked": ["engineering:code-review", "compass:razorpay-api-review", "engineering:testing-strategy", "pre-mortem", "engineering:deploy-checklist"],
+  "skill_tiers": {"pre-mortem": "skill", "engineering:deploy-checklist": "brain"},
   "checklist": {
     "code_quality": {"pass": 5, "warn": 2, "fail": 0, "items": [
       {"check": "No nested error swallowing", "status": "pass"},
@@ -99,6 +108,14 @@ The `/review` skill spawns this agent when:
     "razorpay_domain": {"pass": 6, "warn": 1, "fail": 1, "items": [
       {"check": "Idempotency key on POST /mandates/retry", "status": "pass"},
       {"check": "Timeout on bank callback wait", "status": "fail", "detail": "No timeout set, defaults to 0"}
+    ]},
+    "risk_premortem": {"pass": 1, "warn": 1, "fail": 1, "items": [
+      {"risk": "Retry storm if bank is down", "rpn": 280, "severity": 7, "probability": 5, "detectability": 8, "status": "fail", "detail": "RPN > 200 — mandatory mitigation: add backoff + circuit breaker"},
+      {"risk": "Duplicate retry on callback race", "rpn": 144, "severity": 6, "probability": 4, "detectability": 6, "status": "warn", "detail": "Mitigation plan required"}
+    ]},
+    "deploy_readiness": {"pass": 3, "warn": 1, "fail": 0, "items": [
+      {"check": "Rollback path documented", "status": "pass"},
+      {"check": "Feature flag gating new retry behaviour", "status": "warn", "detail": "Flag exists but no kill-switch test"}
     ]},
     "requirements": {"validated": 2, "disputed": 0, "unaddressed": 1, "items": [
       {"requirement": "Must retry within 24h", "status": "validated", "evidence": "retryWorker checks created_at < 24h"},
@@ -122,7 +139,8 @@ Max 4000 tokens output. Summarize findings, don't dump raw skill outputs.
 Matches `CONTEXT_BUDGET_ARCH_INIT` from brain_config.py.
 
 ## Rate Limits
-- Max 3 skill delegations per invocation (avoid cascading skill calls)
+- Max 5 skill delegations per invocation (one per audit dimension; avoid cascading sub-calls)
 - Max 20 checklist items per category
 - Max 10 confidence updates per run
 - Verdict values: `approve` | `approve_with_comments` | `request_changes` | `block`
+- A `risk_premortem` item with RPN > 500 forces verdict `block` regardless of other dimensions

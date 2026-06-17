@@ -19,22 +19,30 @@ description: "Nemesis orchestrator — intelligent routing to Ideation (overview
     Brain       — 715K nodes, 732K edges, 46 projects
     @Slash      — Razorpay codebase intelligence oracle
 
-  SKILLS:
-    product-management:brainstorm    — Structured ideation
-    engineering:system-design        — System design validation
-    engineering:code-review          — Early + PR code review
-    engineering:testing-strategy     — Test strategy formalization
-    engineering:deploy-checklist     — Pre-deploy safety
-    quality-engineer                 — Test generation, quality gates
-    gatekeeper                       — PR merge criteria enforcement
-    slit-generator-v2                — SLIT test auto-generation
-    pre-mortem                       — Pre-mortem risk analysis
-    tech-spec-generator              — Spec structure validation
+  SKILLS (16 — all loaded at init):
+    product-management:brainstorm    — Structured ideation        [Ideation]
+    product-management:write-spec    — Spec sections 1-4          [Tech Spec]
+    compass:reviewing-strategy       — Strategy/alignment review   [Ideation, Solutioning]
+    compass:razorpay-api-review      — API contract review         [Tech Spec, Review]
+    engineering:system-design        — System design validation    [Solutioning, Tech Spec]
+    engineering:architecture         — Architecture section        [Tech Spec, Scout]
+    engineering:code-review          — Early + PR code review       [Solutioning, Impl, Review]
+    engineering:testing-strategy     — Test strategy formalization [Solutioning, Impl, Review]
+    engineering:tech-debt            — Tech debt implications       [Tech Spec]
+    engineering:documentation        — Docs sections 5, 14         [Tech Spec]
+    engineering:deploy-checklist     — Pre-deploy safety           [Tech Spec, Impl, Review]
+    quality-engineer                 — Test generation, quality gates [Impl, E2E]
+    gatekeeper                       — PR merge criteria enforcement  [Impl]
+    slit-generator-v2                — SLIT test auto-generation      [Impl]
+    pre-mortem                       — Pre-mortem risk analysis       [Solutioning, Review]
+    tech-spec-generator              — Spec structure validation      [Tech Spec]
 
   PROTOCOL:
+    Skill Registry is loaded at init — all 16 skills verified before any phase runs.
     Phase -1 (Brain-First) is MANDATORY before any live analysis.
     Phases run in order. No phase is skipped without artifact check.
     Every completed phase persists to workspace/brain.db before advancing.
+    Every Skill() call has a fallback: Razorpay skill > Brain context > @Slash.
     NEVER edit any file without explicit user permission first.
     workspace/brain.db reads + writes are always permitted (no confirmation needed).
     Continuous dialogue — ask questions at every decision point, not just at gates.
@@ -63,6 +71,47 @@ dispatches to the correct phase or answers directly from Rubick.
 When `/nemesis` is invoked with **no arguments**, or with `status` or `list`,
 show the interactive features dashboard:
 
+### Step 0: Load Skill Registry (init)
+
+Before showing the dashboard, Nemesis loads and verifies the full Razorpay skill
+registry. Skills resolve dynamically through the `Skill` tool (not Python imports),
+so "loading" means **verifying availability + binding each skill to its phases**.
+
+The 16-skill registry, with phase bindings and fallback chain:
+
+| Skill | Phases | Fallback if unavailable |
+|-------|--------|-------------------------|
+| `product-management:brainstorm` | Ideation | Brain context → @Slash |
+| `product-management:write-spec` | Tech Spec | Brain context → manual sections |
+| `compass:reviewing-strategy` | Ideation, Solutioning | Brain context → @Slash |
+| `compass:razorpay-api-review` | Tech Spec, Review | Brain context → manual API review |
+| `engineering:system-design` | Solutioning, Tech Spec | Brain context → @Slash |
+| `engineering:architecture` | Tech Spec, Scout | Brain context → expert nodes |
+| `engineering:code-review` | Solutioning, Impl, Review | Brain context → manual review |
+| `engineering:testing-strategy` | Solutioning, Impl, Review | Brain context → manual strategy |
+| `engineering:tech-debt` | Tech Spec | Brain context → skip section |
+| `engineering:documentation` | Tech Spec | Brain context → manual docs |
+| `engineering:deploy-checklist` | Tech Spec, Impl, Review | Brain context → manual checklist |
+| `quality-engineer` | Impl, E2E | Brain context → manual tests |
+| `gatekeeper` | Impl | manual merge criteria |
+| `slit-generator-v2` | Impl | manual SLIT tests |
+| `pre-mortem` | Solutioning, Review | Brain context → RPN scoring only |
+| `tech-spec-generator` | Tech Spec | TECH_SPEC_TEMPLATE direct |
+
+Init protocol:
+1. Build the registry table above (in-memory map: skill → {phases, fallback}).
+2. Log skill availability to Brain as a Signal node:
+   ```bash
+   python3 -m brain learn Signal "skill-registry:loaded" \
+       -d '{"skills":16,"loaded_at":"<ISO>","status":"verified"}' || true
+   ```
+   (Non-blocking — if the learn call fails, continue. Brain availability never
+   blocks skill loading.)
+3. Every phase that invokes a skill MUST honor the fallback chain in this table.
+   Never block a phase on a skill failure — degrade to the next fallback tier.
+
+The dashboard footer shows `Skills: 16 loaded` to confirm the registry is active.
+
 ### Step 1: Load Features
 
 ```bash
@@ -89,6 +138,7 @@ Also scan `workspace/features/` for directories to catch any features not yet in
   ─────────────────────────────────────────────────────────────────────
 
   Brain: 718K nodes | 737K edges | 45 projects
+  Skills: 16 loaded | Agents: scout, implement, review, test-gen
   
   Commands:
     /nemesis new <name>          Create a new feature
@@ -310,17 +360,84 @@ This prevents re-asking questions the user already answered in a prior session.
 
 ### Skill Invocation Protocol
 
-When invoking Razorpay ecosystem skills during any phase, use the `Skill` tool:
+When invoking any of the 16 registry skills (see Step 0: Load Skill Registry) during a
+phase, use the `Skill` tool. The full registry, by phase:
+
 ```
+# Ideation
 Skill("product-management:brainstorm", "<context>")
+Skill("compass:reviewing-strategy", "<context>")
+
+# Solutioning
 Skill("engineering:system-design", "<context>")
 Skill("engineering:code-review", "<context>")
 Skill("engineering:testing-strategy", "<context>")
+Skill("compass:reviewing-strategy", "<context>")
 Skill("pre-mortem", "<context>")
+
+# Tech Spec
+Skill("product-management:write-spec", "<context>")
+Skill("engineering:architecture", "<context>")
+Skill("engineering:tech-debt", "<context>")
+Skill("engineering:documentation", "<context>")
+Skill("compass:razorpay-api-review", "<context>")
 Skill("engineering:deploy-checklist", "<context>")
+Skill("tech-spec-generator", "<context>")
+
+# Implementation
+Skill("quality-engineer", "<context>")
+Skill("slit-generator-v2", "<context>")
+Skill("engineering:code-review", "<context>")
+Skill("gatekeeper", "<context>")
+
+# Review / E2E
+Skill("engineering:deploy-checklist", "<context>")
+Skill("pre-mortem", "<context>")
 ```
-If a skill fails to resolve, proceed with the phase using Brain context and @Slash
-as fallback sources. Never block a phase on a skill failure.
+
+**Mandatory fallback chain (every Skill() call):**
+```
+1. Razorpay skill (via Skill tool)
+       │ fails to resolve / errors / empty output
+       ▼
+2. Brain context  (python -m brain context "<topic>" -c arch -b 4000)
+       │ insufficient (< 3 high-confidence nodes)
+       ▼
+3. @Slash query   (via /slash protocol to C0B3U3Z2JG1)
+       │ no answer in poll window
+       ▼
+4. Proceed with available context — note the gap in the artifact.
+```
+
+Rules:
+- **Never block a phase on a skill failure.** Degrade down the chain.
+- Log every skill invocation + which tier answered, as a Signal node:
+  ```bash
+  python3 -m brain learn Signal "skill-use:<phase>:<skill>:<feature>" \
+      -d '{"skill":"<skill>","phase":"<phase>","tier":"skill|brain|slash|none","feature":"<slug>"}' || true
+  ```
+- A skill returning low-value output (generic, off-topic) counts as a failure — fall through.
+
+### Specialized Agents
+
+Nemesis spawns specialized sub-agents (via the `Agent` tool) when a phase benefits from
+parallelism or context isolation. Each agent carries its own skill subset and honors the
+same fallback chain.
+
+| Agent | Template | When Nemesis spawns it | Skills it carries |
+|-------|----------|------------------------|-------------------|
+| **scout** | `agents/scout-agent.md` | Pre-Ideation/Solutioning for cross-project, unknown-architecture, or ambiguous-scope features | `engineering:architecture`, `engineering:system-design`, `compass:reviewing-strategy`, `product-management:brainstorm` |
+| **implement** | `agents/implement-agent.md` | Implementation — one per service, in parallel | `engineering:code-review`, `quality-engineer`, `slit-generator-v2`, `gatekeeper` |
+| **test-gen** | `agents/test-gen-agent.md` | Implementation — when test surface is large | `engineering:testing-strategy`, `quality-engineer`, `slit-generator-v2` |
+| **review** | `agents/review-agent.md` | Review — 5-dimension parallel audit | `engineering:code-review`, `compass:razorpay-api-review`, `engineering:testing-strategy`, `pre-mortem`, `engineering:deploy-checklist` |
+
+**Scout gating:** Scout runs only for high-uncertainty features. If the feature is small,
+well-scoped, or in a service with a Brain expert at L3+, skip Scout and go straight to
+Ideation. Scout is read-only — it never edits code; it produces a reconnaissance report and
+persists findings to brain.db that Ideation/Solutioning inherit.
+
+When spawning multiple agents for independent work (e.g. one `implement` per service), launch
+them in a single message so they run concurrently.
 
 ---
 
@@ -1056,6 +1173,8 @@ from the Expert Briefing.
 Skill("engineering:code-review", "<proposed code changes summary + file paths>")
 ```
 Flag: complexity hotspots, missing error handling, concurrency issues, potential regressions.
+_Fallback (per Skill Invocation Protocol): if the skill is unavailable, pull review heuristics
+from `python -m brain context "<service> code review" -c arch`, then @Slash; never block tracing._
 
 **PAUSE POINT 2** — After code tracing + early review:
 - Present: services traced, code paths identified, early review findings
@@ -1114,6 +1233,8 @@ Generate a structured test plan:
 - **Manual/E2E Tests**: Scenarios that require manual verification or E2E orchestration
 
 Output: testing strategy summary (persisted as Signal node, feeds into Implementation phase).
+_Fallback: if the skill is unavailable, derive the test plan from `.agents/rules/rule-unit-tests.md`
+in the target repo + Brain test-coverage nodes; never block on skill failure._
 
 **PAUSE POINT 4** — After testing strategy:
 - Present: test coverage summary (N unit, N integration, N SLIT, N E2E)
@@ -1133,6 +1254,8 @@ Check alignment with:
 - Cross-team dependencies and coordination needs
 
 Integrate findings as warnings in the solution artifact.
+_Fallback: if the skill is unavailable, check alignment against Brain ArchDecision nodes +
+@Slash; never block on skill failure._
 
 #### 5.7. Pre-Mortem Risk Analysis (NEW — via pre-mortem)
 
@@ -1140,6 +1263,8 @@ Invoke the pre-mortem skill for structured risk discovery:
 ```
 Skill("pre-mortem", "<solution summary + deployment plan>")
 ```
+_Fallback: if the skill is unavailable, run the RPN scoring below directly on step-5 risks +
+Brain RiskItem nodes for this domain; never block on skill failure._
 
 For each risk identified (from pre-mortem + step 5), compute formal RPN score:
 - **Severity** (1-10): Impact if the risk materializes

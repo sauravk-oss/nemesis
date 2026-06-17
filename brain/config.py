@@ -208,3 +208,44 @@ SERVICE_DEPS: Dict[str, List[str]] = {
     "settlements": ["rpc", "goutils", "ledger", "splitz", "scrooge"],
     "stork": ["rpc", "goutils", "metro", "raven"],
 }
+
+# ---------------------------------------------------------------------------
+# Razorpay Skill Registry (16) — loaded at `brain init` and by /nemesis Step 0.
+# Skills resolve dynamically via the Skill tool (not Python imports); this map
+# is the source of truth for phase bindings + fallback chains.
+# fallback chain per skill: Razorpay skill > Brain context > @Slash > proceed.
+# ---------------------------------------------------------------------------
+SKILL_REGISTRY: List[Dict[str, str]] = [
+    {"skill": "product-management:brainstorm", "phases": "Ideation",
+     "fallback": "Brain context > @Slash"},
+    {"skill": "product-management:write-spec", "phases": "Tech Spec",
+     "fallback": "Brain context > manual sections"},
+    {"skill": "compass:reviewing-strategy", "phases": "Ideation, Solutioning",
+     "fallback": "Brain context > @Slash"},
+    {"skill": "compass:razorpay-api-review", "phases": "Tech Spec, Review",
+     "fallback": "Brain context > manual API review"},
+    {"skill": "engineering:system-design", "phases": "Solutioning, Tech Spec",
+     "fallback": "Brain context > @Slash"},
+    {"skill": "engineering:architecture", "phases": "Tech Spec, Scout",
+     "fallback": "Brain context > expert nodes"},
+    {"skill": "engineering:code-review", "phases": "Solutioning, Impl, Review",
+     "fallback": "Brain context > manual review"},
+    {"skill": "engineering:testing-strategy", "phases": "Solutioning, Impl, Review",
+     "fallback": "Brain context > manual strategy"},
+    {"skill": "engineering:tech-debt", "phases": "Tech Spec",
+     "fallback": "Brain context > skip section"},
+    {"skill": "engineering:documentation", "phases": "Tech Spec",
+     "fallback": "Brain context > manual docs"},
+    {"skill": "engineering:deploy-checklist", "phases": "Tech Spec, Impl, Review",
+     "fallback": "Brain context > manual checklist"},
+    {"skill": "quality-engineer", "phases": "Impl, E2E",
+     "fallback": "Brain context > manual tests"},
+    {"skill": "gatekeeper", "phases": "Impl",
+     "fallback": "manual merge criteria"},
+    {"skill": "slit-generator-v2", "phases": "Impl",
+     "fallback": "manual SLIT tests"},
+    {"skill": "pre-mortem", "phases": "Solutioning, Review",
+     "fallback": "RPN scoring only"},
+    {"skill": "tech-spec-generator", "phases": "Tech Spec",
+     "fallback": "TECH_SPEC_TEMPLATE direct"},
+]
