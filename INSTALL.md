@@ -243,8 +243,9 @@ BRAIN_WORKSPACE=/tmp/nm-test python3 -m brain init && python3 -m brain stats
 ## Sharing features between machines
 
 `brain.db` is never copied. Instead, feature artifacts (overview, solution, tech-spec,
-implementation files, test-report) are pushed to a Google Drive folder, and each teammate
-rebuilds their own brain from those artifacts.
+`test-report.md`, `change-report.md`, `pipeline-report.html`, implementation files) are
+pushed to a Google Drive folder, and each teammate rebuilds their own brain from those
+artifacts.
 
 - **Push** (after working a feature): `/nemesis sync <slug>` — uploads changed artifacts to
   `nemesis/features/<slug>/` on Drive (allowlist `.md`/`.html`/`.json`, skips files >2 MB
@@ -255,6 +256,15 @@ rebuilds their own brain from those artifacts.
   `feature-health <slug>` should then be populated.
 
 Requires the Google Drive/Workspace MCP connected (Step 3).
+
+### The pipeline report
+
+`/nemesis report <slug>` renders `pipeline-report.html` — a single self-contained file
+showing the whole AI pipeline as collapsible tree nodes (every doc, the skills used and
+their input/output, each iteration, the embedded test report, the archive, a Brain-powered
+knowledge node, and a redirect Drive URL). `/implement` generates it automatically at the
+end of Implementation (Step 9b); run `/nemesis report <slug>` to regenerate it at any phase.
+It's pushed to Drive alongside the other artifacts by `/nemesis sync`.
 
 ---
 

@@ -110,6 +110,18 @@ Brain-First  Ideation     Solutioning       Tech Spec    Implementation     E2E
 /nemesis pull <drive-link>     # PULL a feature from Drive + rebuild brain locally
 ```
 
+### Reports
+
+```
+/nemesis report <slug>         # regenerate pipeline-report.html (collapsible tree, brain-powered)
+```
+
+Per-feature artifacts under `workspace/features/<slug>/`: `overview.{md,html}` (incl. the
+Open Questions / next-iteration ledger), `solution.{md,html}`, `tech-spec.md`,
+`test-report.md` (per-test → requirement/issue map), `change-report.md` (what changed +
+why, tests added/pending, merge verdict), and `pipeline-report.html` (whole-pipeline
+collapsible-tree HTML with a Drive redirect). All are pushed by `/nemesis sync`.
+
 ---
 
 ## Brain CLI Surface
