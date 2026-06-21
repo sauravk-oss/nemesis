@@ -141,10 +141,14 @@ Also scan `workspace/features/` for directories to catch any features not yet in
   Skills: 16 loaded | Agents: scout, implement, review, test-gen
   
   Commands:
-    /nemesis new <name>          Create a new feature
-    /nemesis <feature-slug>      Resume feature (next phase)
-    /nemesis ideation <slug>     Run specific phase
-    /nemesis status <slug>       Detailed feature status
+    /nemesis new <name> [drive-link]   Create a feature (link → pull+rebuild)
+    /nemesis <feature-slug>            Resume feature (next phase)
+    /nemesis ideation <slug>           Run specific phase
+    /nemesis status <slug>             Detailed feature status
+    /nemesis sync <slug>               Push feature artifacts to Drive
+    /nemesis pull <drive-link>         Pull a shared feature + rebuild brain
+    /nemesis init                      Bootstrap brain (sources + L1 ingest)
+    /nemesis doctor                    Health check (deps, MCPs, brain, sources)
     Just describe what you need — Nemesis will figure out the rest.
 ```
 
@@ -196,18 +200,29 @@ If Brain has insufficient context, offer to run Ideation or query @Slash.
 
 Trigger patterns:
 - `/nemesis new <name>` — explicit new feature creation
+- `/nemesis new <name> <drive-link>` — recreate a shared feature from Drive (PULL)
 - "create overview for X", "analyze this feature", "new feature: X"
 - "ideation X", "overview X"
 - "I need to understand how X should work"
 - User pastes Slack links, doc links, or describes a feature brief
 - "here's what we need to build: ..."
 
-Action:
+**Branch A — `/nemesis new <name> <drive-link>` (a Google Drive folder link is present):**
+This is the headline feature-sharing flow. The Drive link points at a feature folder
+another machine pushed. Do NOT start a fresh Ideation — instead recreate the feature
+locally from the archived artifacts and rebuild brain state. Route to the **`/nemesis pull`**
+flow (see "System Command: /nemesis pull") using `<name>` as the slug hint, then STOP —
+once pulled, the feature resumes at whatever phase its artifacts indicate.
+
+**Branch B — `/nemesis new <name>` (no link) — normal creation:**
 1. Generate a slug from the feature name (lowercase, hyphens, max 50 chars)
 2. Create feature in Brain: `python3 -m brain feature-create "<name>"`
 3. Create workspace dir: `workspace/features/<slug>/`
 4. Ask: "What sources should I gather? (Slack threads, docs, PRs, verbal description)"
 5. Activate Phase 1 (Ideation) with collected sources
+
+(Detection rule: if the args contain a `drive.google.com/.../folders/<id>` or `/d/<id>`
+URL, take Branch A; otherwise Branch B.)
 
 ### Category 3: FEATURE RESUMPTION (route to correct phase)
 
@@ -263,6 +278,133 @@ If missing, surface it and offer to run Solutioning first.
 If the intent is unclear, ask ONE clarifying question. Do not present a menu.
 Example: "Are you looking to understand how X works (I can answer from Rubick),
 or do you want to create a full feature analysis?"
+
+---
+
+## System Commands (setup, health, feature sharing)
+
+These four commands operate on the Nemesis installation itself, not on a single
+feature's pipeline. They all obey the global constraints: **Python never calls an
+MCP** (the LLM does, two-phase Franco style), **brain.db is never shipped between
+machines** (it is rebuilt from artifacts), and **OAuth MCPs are validated, never
+auto-connected** (tokens stay in Claude Code).
+
+### System Command: `/nemesis init` — bootstrap the brain with L1 understanding
+
+Initializes a brain that knows *what its data sources are* and has a bounded **L1**
+slice of live content from each. Runs four phases; each later phase degrades
+gracefully if a dependency is missing (warn + continue, never hard-fail the init).
+
+**Phase A — Environment validation (read-only).**
+```bash
+./setup.sh --check
+```
+Surface the AMBER/RED summary. If RED (e.g. Python too old, networkx missing),
+tell the user to run `./setup.sh` (full) first and STOP. AMBER (optional/OAuth
+warnings) is fine to proceed.
+
+**Phase B — Brain + sources + experts (pure DB writes, no MCP).**
+```bash
+python -m brain init                       # dirs + schema + seed services + skill registry
+python -m brain register-sources           # upsert a node per source in config/sources.json + RELATES_TO edges
+python -m brain init-experts --level 1      # seed ProjectExpert nodes for all SEED_PROJECTS to L1
+```
+(Correctness note: `brain init` seeds services + the skill registry but does **not**
+seed experts — experts come from `init-experts --level 1`. Do not assume `init`
+created experts.)
+
+**Phase C — Bounded live L1 ingest (LLM-driven, two-phase Franco).**
+For each source in `config/sources.json` where `ingest.l1 == true`, ingest a small,
+capped slice. This is the only phase that touches MCPs, and it follows Franco's
+two-phase pattern: Python builds nothing here — the LLM makes the MCP/CLI call,
+hands the raw response to `python -m brain ingest-mcp <type> <id> --payload <file>`
+for normalization + learn + flush.
+
+| Source type | L1 bound | Fetch path |
+|-------------|----------|------------|
+| slack    | 30 messages, last 7 days       | LLM: `slack_get_channel_messages` → `ingest-mcp slack <channel_id> --payload f.json` |
+| drive    | top 5 docs; 1× 8000 chars each | LLM: `search_files` + `read_file_content` → `ingest-mcp drive <doc_id> --payload f.json` |
+| github   | README + top 10 files          | `gh` CLI directly → `python -m brain ingest <local_path> --project <repo>` |
+| devrev   | 5 items                        | LLM: DevRev fetch → `ingest-mcp devrev <query> --payload f.json` |
+
+After each source's slice ingests, checkpoint so re-runs are incremental:
+```python
+# inline, skill layer:
+from brain.api import BrainAPI
+BrainAPI().update_sync_cursor(source_type, source_id, cursor="<latest_ts_or_id>")
+```
+If an MCP for a given source is disconnected (per Phase A), **skip that source with a
+warning** and keep going — a partial L1 brain is still useful and the next `/nemesis init`
+resumes from the cursor.
+
+**Phase D — Init report + Signal.**
+Print: sources registered (by type), experts seeded (count @ L1), nodes ingested per
+source (and which were skipped). Persist a checkpoint Signal:
+```bash
+python -m brain learn Signal "init:$(date +%Y%m%dT%H%M%S)" \
+    -d '{"phase":"init","sources":<n>,"experts":<n>,"ingested":<n>,"skipped":[...]}' || true
+python -m brain learn-flush
+```
+
+### System Command: `/nemesis doctor` — health check
+
+```bash
+python -m brain doctor
+```
+Renders a green/amber/red table: Python deps (core vs optional), brain.db reachability
++ stats, data sources (registered vs `config/sources.json` count), experts (count +
+levels), GitHub CLI auth, skill registry (16), and MCP connectivity (`N/5` connected —
+detected from local Claude config, validate-only). For deeper environment checks
+(pip, gh login guidance) also offer `./setup.sh --check`. Each non-green row prints a
+remediation hint (e.g. "run: python -m brain register-sources"). Persist a Signal with
+the verdict.
+
+### System Command: `/nemesis sync <slug>` — push feature artifacts to Drive
+
+Manual trigger of the same PUSH used by the end-of-phase hooks. Two-phase: Python
+computes the diff and the upload plan; the LLM performs the Drive MCP uploads; Python
+records the results back into the manifest.
+
+1. `python3 scripts/feature_sync.py status --feature <slug>` → if `needs_push` is
+   false, report "already in sync" and STOP.
+2. `python3 scripts/feature_sync.py push-plan --feature <slug>` → emits the file list
+   (changed/new only; allowlist `.md/.html/.json`; skips files >2 MB and `*-logs/`).
+   Resolve/create the `nemesis/features/<slug>/` Drive subfolder idempotently (manifest
+   `folder_id` → else `search_files` → else `create_file` folder; cache the id).
+3. **LLM:** for each planned file, upload via Drive MCP (`create_file` / `update_file`)
+   into that folder. `implementation/` paths are flattened to a single
+   `implementation__<name>` filename (Drive nesting is costly; flatten is reversible
+   on pull).
+4. `python3 scripts/feature_sync.py record-push --feature <slug> --results <json> \
+   --folder-id <id> --share-url <url>` → writes `{file_id, sha256, size, mtime,
+   pushed_at}` per file into `workspace/features/<slug>/.drive.json`.
+5. Print the shareable folder link (this is what a teammate passes to `/nemesis new`/`pull`).
+
+### System Command: `/nemesis pull <drive-link>` — recreate a shared feature + rebuild brain
+
+The headline sharing flow (also reached via `/nemesis new <name> <drive-link>`).
+Downloads a feature folder another machine pushed and rebuilds **local** brain state —
+**brain.db is never copied**, only the artifacts; the brain is rebuilt by re-running
+the learning pipeline over them.
+
+1. `python3 scripts/feature_sync.py pull-plan --link <drive-link> [--feature <hint>]`
+   → parses the Drive folder id and emits the resolve/search/download plan + slug.
+2. **LLM:** `search_files` in that folder → `download_file_content` for each file.
+3. `python3 scripts/feature_sync.py record-pull --feature <slug> --files <json>
+   [--folder-id <id>]` → writes the files into `workspace/features/<slug>/`,
+   un-flattening any `implementation__<name>` back to `implementation/<name>`, and
+   updates `.drive.json` `last_pull`.
+4. **Brain rebuild** (never ship brain.db):
+   ```bash
+   python -m brain feature-create "<name>"
+   # for each pulled artifact (overview.md, solution.md, tech-spec.md, test-report.md, ...):
+   python -m brain ingest <workspace/features/<slug>/<artifact>> --feature <slug>
+   python -m brain learn-flush
+   ```
+   (Use `/franco <path>` per artifact if you want source-typed normalization; both route
+   through the same learn → flush pipeline.)
+5. Verify: `python -m brain feature-health <slug>` is populated, then resume the feature
+   at whatever phase its artifacts indicate (phase detection from Step 3 of the Dashboard).
 
 ---
 
@@ -989,6 +1131,17 @@ python -m brain add-node Signal "ideation_overview:<feature_name>" \
 python -m brain learn-flush
 ```
 
+**Drive PUSH hook (after learn-flush):** sync this phase's artifacts to Drive so the
+feature folder is shareable. Run the `/nemesis sync <slug>` flow:
+```bash
+python3 scripts/feature_sync.py status --feature <slug>   # if needs_push=false → skip
+python3 scripts/feature_sync.py push-plan --feature <slug>
+# LLM uploads each planned file via Drive MCP into nemesis/features/<slug>/
+python3 scripts/feature_sync.py record-push --feature <slug> --results <json> --folder-id <id> --share-url <url>
+```
+Skip silently if `needs_push` is false. Never let a Drive failure block the phase —
+warn and continue (the artifacts are already on disk).
+
 #### 8. Render Summary + Offer Next Steps
 
 After Ideation completes, render:
@@ -1323,6 +1476,10 @@ python -m brain add-node Signal "solutioning_solution:<feature_name>" \
 python -m brain learn-flush
 ```
 
+**Drive PUSH hook (after learn-flush):** sync `solution.md`/`solution.html` to Drive via
+the `/nemesis sync <slug>` flow (`feature_sync.py status` → `push-plan` → LLM uploads →
+`record-push`). Skip if `needs_push=false`; warn-and-continue on any Drive failure.
+
 ### Solutioning Quality Gates
 
 - [ ] Every file:line reference is real
@@ -1444,7 +1601,10 @@ Flag contradictions between @Slash responses and generated content.
 
 5. **PAUSE POINT 3**: Present full spec summary. ASK "Final review before export. Any changes?"
 6. Share with reviewers, export if needed
-7. Persist Document node to Rubick
+7. Persist Document node to Rubick (`python -m brain learn-flush`)
+8. **Drive PUSH hook (after learn-flush):** sync `tech-spec.md` to Drive via the
+   `/nemesis sync <slug>` flow (`feature_sync.py status` → `push-plan` → LLM uploads →
+   `record-push`). Skip if `needs_push=false`; warn-and-continue on any Drive failure.
 
 Full protocol: See `/techspec` skill (commands/silencer.md).
 
@@ -1482,6 +1642,7 @@ Skill("implement", "<slug>")
 | 2 | Drift Detection | "Found <N> drift issues vs live code. Update solution or proceed?" |
 | 3 | Code Generation | "Review generated code for <service>. Approve changes?" |
 | 4 | Quality Gates | "Quality gates: <N> pass, <N> fail. Fix failures?" |
+| 4.5 | Pre-PR Gate (Step 6.5) | "Pre-PR gate green: UT 100%, SLIT 100%, review clean, <N> tests passing after <K> iteration(s). Proceed to PR creation?" |
 | 5 | PR Creation | "PR created. Review description and changes?" |
 
 ### What Implementation Produces
@@ -1501,6 +1662,9 @@ Skill("implement", "<slug>")
 3. **NEVER commit secrets** — scan for .env, credentials, API keys
 4. Always run quality gates before PR creation
 5. User MUST approve generated code before committing
+6. **NEVER create a PR until the Step 6.5 Pre-PR Gate is green** — 100% UT coverage
+   AND 100% SLIT coverage (both feature-scoped), all tests passing, clean 5-skill
+   review. The gate iterates back to Step 3/4 until satisfied (cap: 5 iterations).
 
 Full protocol: See `/implement` skill (commands/implement.md).
 
@@ -1648,6 +1812,11 @@ While Nemesis is designed for natural language, power users can use direct comma
 | `status` | Feature coverage dashboard |
 | `validate <node>` | Feedback loop |
 | `learn` | Learning stats |
+| `new <name> [drive-link]` | Create a feature; with a Drive link → pull + rebuild |
+| `sync <slug>` | Push feature artifacts to Drive (feature_sync push) |
+| `pull <drive-link>` | Pull a shared feature + rebuild brain (never ships brain.db) |
+| `init` | Bootstrap brain: validate env → seed sources/experts → bounded L1 ingest |
+| `doctor` | Health check (deps, brain.db, sources, experts, gh, skills, MCPs) |
 
 ---
 

@@ -249,3 +249,150 @@ SKILL_REGISTRY: List[Dict[str, str]] = [
     {"skill": "tech-spec-generator", "phases": "Tech Spec",
      "fallback": "TECH_SPEC_TEMPLATE direct"},
 ]
+
+# ---------------------------------------------------------------------------
+# Franco — universal data collector
+# ---------------------------------------------------------------------------
+# Source-detection regexes (ported from scripts/brain_config.py so the brain
+# package is self-contained). BrainAPI.ingest() / detect_source() use these to
+# classify a URL / ID / path. The brain package NEVER calls an MCP itself — for
+# MCP-backed sources detect_source returns status=needs_fetch and the LLM (skill
+# layer) fetches the payload, then hands it back via ingest_mcp_response().
+SOURCE_PATTERNS: Dict[str, str] = {
+    "slack_thread":  r"(?:https?://)?[\w.-]*slack\.com/archives/\w+/p\d+",
+    "slack_channel": r"(?:https?://)?[\w.-]*slack\.com/(?:archives|channels?)/\w+/?$",
+    "drive_doc":     r"(?:https?://)?docs\.google\.com/document/d/[\w-]+",
+    "drive_file":    r"(?:https?://)?drive\.google\.com/(?:file/d|open\?id=)[\w-]+",
+    "drive_folder":  r"(?:https?://)?drive\.google\.com/drive/(?:u/\d+/)?folders/[\w-]+",
+    "gmail_thread":  r"(?:https?://)?mail\.google\.com/mail/.*#(?:inbox|all|sent)/[\w]+",
+    "github_pr":     r"(?:https?://)?github\.com/[\w.-]+/[\w.-]+/pull/\d+",
+    "github_issue":  r"(?:https?://)?github\.com/[\w.-]+/[\w.-]+/issues/\d+",
+    "github_commit": r"(?:https?://)?github\.com/[\w.-]+/[\w.-]+/commit/[\da-f]+",
+    "jira_issue":    r"(?:https?://)?[\w.-]*atlassian\.net/browse/[\w]+-\d+",
+    "devrev_task":   r"(?:https?://)?app\.devrev\.ai/[\w.-]+/(?:tasks|works)/[\w-]+",
+    "devrev_id":     r"^(?:ISS|TKT|TASK)-\d+$",
+    "jira_id":       r"^[A-Z][A-Z0-9]+-\d+$",
+}
+
+# Which node type each detected source maps to when ingested.
+SOURCE_NODE_TYPE: Dict[str, str] = {
+    "slack_thread": "Signal", "slack_channel": "SlackChannel",
+    "drive_doc": "Document", "drive_file": "Document", "drive_folder": "Document",
+    "gmail_thread": "Email", "github_pr": "PR", "github_issue": "JiraIssue",
+    "github_commit": "Commit", "jira_issue": "JiraIssue", "devrev_task": "JiraIssue",
+    "devrev_id": "JiraIssue", "jira_id": "JiraIssue",
+    "local_file": "Document", "web_url": "WebPage", "unknown": "Signal",
+}
+
+
+def _extract_source_id(source_type: str, url: str) -> str:
+    """Extract a stable id from a URL for the given source type.
+
+    Mirrors scripts/rubick_ingest._extract_source_id. Returns the raw url when
+    no pattern matches (e.g. bare ids like ISS-1234).
+    """
+    import re
+    rules = {
+        "slack_thread":  (r"/archives/(\w+)/p(\d+)", lambda m: f"{m.group(1)}:{m.group(2)}"),
+        "slack_channel": (r"/(?:archives|channels?)/(\w+)", lambda m: m.group(1)),
+        "drive_doc":     (r"/document/d/([\w-]+)", lambda m: m.group(1)),
+        "drive_file":    (r"(?:file/d/|open\?id=)([\w-]+)", lambda m: m.group(1)),
+        "drive_folder":  (r"folders/([\w-]+)", lambda m: m.group(1)),
+        "gmail_thread":  (r"#(?:inbox|all|sent)/([\w]+)", lambda m: m.group(1)),
+        "github_pr":     (r"github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)",
+                          lambda m: f"{m.group(1)}/{m.group(2)}#{m.group(3)}"),
+        "github_issue":  (r"github\.com/([\w.-]+)/([\w.-]+)/issues/(\d+)",
+                          lambda m: f"{m.group(1)}/{m.group(2)}#{m.group(3)}"),
+        "github_commit": (r"github\.com/([\w.-]+)/([\w.-]+)/commit/([\da-f]+)",
+                          lambda m: f"{m.group(1)}/{m.group(2)}@{m.group(3)[:12]}"),
+        "jira_issue":    (r"/browse/([\w]+-\d+)", lambda m: m.group(1)),
+        "devrev_task":   (r"/(?:tasks|works)/([\w-]+)", lambda m: m.group(1)),
+    }
+    if source_type in rules:
+        pat, fn = rules[source_type]
+        m = re.search(pat, url)
+        if m:
+            return fn(m)
+    return url
+
+
+def detect_source(input_str: str) -> Dict[str, str]:
+    """Detect {source_type, source_id, platform, ...} from a URL, id, or path.
+
+    Pure aside from a local-path existence check. No MCP / network I/O.
+    """
+    import hashlib
+    import os
+    import re
+    s = (input_str or "").strip()
+    for stype, pattern in SOURCE_PATTERNS.items():
+        if re.match(pattern, s):
+            return {"source_type": stype, "source_id": _extract_source_id(stype, s),
+                    "platform": stype.split("_")[0],
+                    "url": s if s.startswith("http") else None, "raw_input": s}
+    if os.path.exists(s):
+        return {"source_type": "local_file",
+                "source_id": hashlib.sha256(s.encode()).hexdigest()[:16],
+                "platform": "local", "path": s, "raw_input": s}
+    if s.startswith("http"):
+        return {"source_type": "web_url",
+                "source_id": hashlib.sha256(s.encode()).hexdigest()[:16],
+                "platform": "web", "url": s, "raw_input": s}
+    return {"source_type": "unknown", "source_id": s,
+            "platform": "unknown", "raw_input": s}
+
+
+# ---------------------------------------------------------------------------
+# MCP servers required for full Franco / init / feature-sync functionality.
+# setup.sh and `brain doctor` VALIDATE availability only — they never store
+# tokens. OAuth MCPs must be connected interactively by the user.
+# ---------------------------------------------------------------------------
+# Each entry's `aliases` are matched (case-insensitive substring, both directions)
+# against BOTH local `mcpServers` keys in .claude/settings.json AND the hosted
+# connector names in ~/.claude.json `claudeAiMcpEverConnected` (e.g. "claude.ai Slack").
+# MCPs in this environment are typically hosted OAuth connectors, not local servers,
+# so the aliases are what make the doctor/setup probe report them as present.
+REQUIRED_MCP: List[Dict[str, object]] = [
+    {"key": "slack", "server": "plugin_compass_slack-mcp", "auth": "oauth",
+     "purpose": "Slack channel/thread ingest",
+     "aliases": ["claude.ai Slack", "slack"]},
+    {"key": "google-workspace", "server": "plugin_compass_google-workspace", "auth": "oauth",
+     "purpose": "Drive docs read + feature-sync push/pull",
+     "aliases": ["claude.ai Google Drive", "google-workspace", "google drive", "workspace"]},
+    {"key": "drive", "server": "e20283d0", "auth": "oauth",
+     "purpose": "Drive file/folder read + upload",
+     "aliases": ["claude.ai Google Drive", "google drive", "drive"]},
+    {"key": "gmail", "server": "f22d0c2f", "auth": "oauth",
+     "purpose": "Gmail thread ingest",
+     "aliases": ["claude.ai Gmail", "gmail"]},
+    {"key": "calendar", "server": "d285de92", "auth": "oauth",
+     "purpose": "Calendar context for standup",
+     "aliases": ["claude.ai Google Calendar", "google calendar", "calendar"]},
+]
+
+# ---------------------------------------------------------------------------
+# Drive feature-sync (PUSH after each pipeline step / PULL on `/nemesis new`).
+# ---------------------------------------------------------------------------
+DRIVE_STORAGE_FOLDER_ID: str = "1u1vLNkGY9CM8G8eBDe0DtEAjcT3mjBa5"
+DRIVE_STORAGE_FOLDER_URL: str = (
+    "https://drive.google.com/drive/folders/1u1vLNkGY9CM8G8eBDe0DtEAjcT3mjBa5")
+SYNC_ALLOWLIST_EXT: List[str] = [".md", ".html", ".json"]
+SYNC_MAX_FILE_BYTES: int = 2 * 1024 * 1024  # skip files larger than 2 MB
+SYNC_SKIP_DIR_SUFFIXES: List[str] = ["-logs"]  # skip *-logs/ directories
+
+# ---------------------------------------------------------------------------
+# Data-source registry — single source of truth for `/nemesis init`.
+# ---------------------------------------------------------------------------
+SOURCES_PATH: str = str(Path(__file__).resolve().parent.parent / "config" / "sources.json")
+
+
+def load_sources() -> Dict:
+    """Load config/sources.json (the data-source registry). {} if absent/bad."""
+    import json
+    p = Path(SOURCES_PATH)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        return {}

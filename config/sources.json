@@ -1,0 +1,720 @@
+{
+  "_comment": "Data-source registry \u2014 single source of truth for `/nemesis init`. `brain register-sources` upserts one DataSource node per entry below + RELATES_TO edges to the listed project Service nodes (pure DB writes, no MCP). The bounded live L1 ingest (commands/nemesis.md Phase C, LLM-driven via Franco) only pulls entries with ingest.l1=true and degrades gracefully if an MCP is down. Fill `id` for Slack channels you want ingested (Decision #29: channel ID over name), then flip ingest.l1=true. Edit freely.",
+  "slack": [
+    {
+      "key": "payments_emandate",
+      "id": "",
+      "name": "payments_emandate",
+      "relates_to": [
+        "emandate-service",
+        "payments-mandate"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    },
+    {
+      "key": "payments_cards_emandate_coe",
+      "id": "",
+      "name": "payments_cards_emandate_coe",
+      "relates_to": [
+        "emandate-service",
+        "payments-card"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    },
+    {
+      "key": "emandate_alerts",
+      "id": "",
+      "name": "emandate_alerts",
+      "relates_to": [
+        "emandate-service"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    },
+    {
+      "key": "slash_offers_engine",
+      "id": "",
+      "name": "slash-offers-engine",
+      "relates_to": [
+        "offers-engine"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    },
+    {
+      "key": "debugging_offers_with_slash",
+      "id": "",
+      "name": "debugging-offers-with-slash",
+      "relates_to": [
+        "offers-engine"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    },
+    {
+      "key": "recurring_alerts",
+      "id": "",
+      "name": "recurring_alerts",
+      "relates_to": [
+        "emandate-service",
+        "subscriptions"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    },
+    {
+      "key": "claude_saurav",
+      "id": "C0B3U3Z2JG1",
+      "name": "claude-saurav",
+      "relates_to": [],
+      "ingest": {
+        "l1": false,
+        "limit": 30,
+        "days": 7
+      }
+    }
+  ],
+  "drive": [
+    {
+      "key": "rubick_notebook",
+      "id": "1HDFURcA3TsW64Xt-rALjERFfcCmBNPMnBGNgPwfxWCo",
+      "type": "doc",
+      "relates_to": [],
+      "ingest": {
+        "l1": false,
+        "chars": 8000
+      }
+    },
+    {
+      "key": "nemesis_notebook",
+      "id": "1PdjM-wMTmikjKEeKvoZmByokxlJTK9Ode759sdwagnQ",
+      "type": "doc",
+      "relates_to": [],
+      "ingest": {
+        "l1": false,
+        "chars": 8000
+      }
+    }
+  ],
+  "github": [
+    {
+      "key": "emandate-service",
+      "repo": "razorpay/emandate-service",
+      "role": "primary",
+      "relates_to": [
+        "emandate-service"
+      ],
+      "ingest": {
+        "l1": true,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "offers-engine",
+      "repo": "razorpay/offers-engine",
+      "role": "primary",
+      "relates_to": [
+        "offers-engine"
+      ],
+      "ingest": {
+        "l1": true,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "rpc",
+      "repo": "razorpay/rpc",
+      "role": "primary",
+      "relates_to": [
+        "rpc"
+      ],
+      "ingest": {
+        "l1": true,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "payments-mandate",
+      "repo": "razorpay/payments-mandate",
+      "role": "primary",
+      "relates_to": [
+        "payments-mandate"
+      ],
+      "ingest": {
+        "l1": true,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "checkout-service",
+      "repo": "razorpay/checkout-service",
+      "role": "core",
+      "relates_to": [
+        "checkout-service"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "pg-router",
+      "repo": "razorpay/pg-router",
+      "role": "core",
+      "relates_to": [
+        "pg-router"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "payments-card",
+      "repo": "razorpay/payments-card",
+      "role": "core",
+      "relates_to": [
+        "payments-card"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "payments-upi",
+      "repo": "razorpay/payments-upi",
+      "role": "core",
+      "relates_to": [
+        "payments-upi"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "mozart",
+      "repo": "razorpay/mozart",
+      "role": "core",
+      "relates_to": [
+        "mozart"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "terminals",
+      "repo": "razorpay/terminals",
+      "role": "core",
+      "relates_to": [
+        "terminals"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "shield",
+      "repo": "razorpay/shield",
+      "role": "core",
+      "relates_to": [
+        "shield"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "api",
+      "repo": "razorpay/api",
+      "role": "core",
+      "relates_to": [
+        "api"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "goutils",
+      "repo": "razorpay/goutils",
+      "role": "infra",
+      "relates_to": [
+        "goutils"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "integrations-go",
+      "repo": "razorpay/integrations-go",
+      "role": "infra",
+      "relates_to": [
+        "integrations-go"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "integrations-utils",
+      "repo": "razorpay/integrations-utils",
+      "role": "infra",
+      "relates_to": [
+        "integrations-utils"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "ledger",
+      "repo": "razorpay/ledger",
+      "role": "infra",
+      "relates_to": [
+        "ledger"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "splitz",
+      "repo": "razorpay/splitz",
+      "role": "infra",
+      "relates_to": [
+        "splitz"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "stork",
+      "repo": "razorpay/stork",
+      "role": "infra",
+      "relates_to": [
+        "stork"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "raven",
+      "repo": "razorpay/raven",
+      "role": "infra",
+      "relates_to": [
+        "raven"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "metro",
+      "repo": "razorpay/metro",
+      "role": "infra",
+      "relates_to": [
+        "metro"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "vault",
+      "repo": "razorpay/vault",
+      "role": "infra",
+      "relates_to": [
+        "vault"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "scrooge",
+      "repo": "razorpay/scrooge",
+      "role": "domain",
+      "relates_to": [
+        "scrooge"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "settlements",
+      "repo": "razorpay/settlements",
+      "role": "domain",
+      "relates_to": [
+        "settlements"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "charge-collections",
+      "repo": "razorpay/charge-collections",
+      "role": "domain",
+      "relates_to": [
+        "charge-collections"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "subscriptions",
+      "repo": "razorpay/subscriptions",
+      "role": "domain",
+      "relates_to": [
+        "subscriptions"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "reminders",
+      "repo": "razorpay/reminders",
+      "role": "domain",
+      "relates_to": [
+        "reminders"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "magic-checkout-service",
+      "repo": "razorpay/magic-checkout-service",
+      "role": "domain",
+      "relates_to": [
+        "magic-checkout-service"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "payments-cross-border",
+      "repo": "razorpay/payments-cross-border",
+      "role": "domain",
+      "relates_to": [
+        "payments-cross-border"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "payments-bank-transfer",
+      "repo": "razorpay/payments-bank-transfer",
+      "role": "domain",
+      "relates_to": [
+        "payments-bank-transfer"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "payment-methods",
+      "repo": "razorpay/payment-methods",
+      "role": "domain",
+      "relates_to": [
+        "payment-methods"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "tokens",
+      "repo": "razorpay/tokens",
+      "role": "domain",
+      "relates_to": [
+        "tokens"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "downtime-manager",
+      "repo": "razorpay/downtime-manager",
+      "role": "domain",
+      "relates_to": [
+        "downtime-manager"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "optimizer-core",
+      "repo": "razorpay/optimizer-core",
+      "role": "domain",
+      "relates_to": [
+        "optimizer-core"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "edge",
+      "repo": "razorpay/edge",
+      "role": "gateway",
+      "relates_to": [
+        "edge"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "relay",
+      "repo": "razorpay/relay",
+      "role": "gateway",
+      "relates_to": [
+        "relay"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "dcs",
+      "repo": "razorpay/dcs",
+      "role": "gateway",
+      "relates_to": [
+        "dcs"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "route",
+      "repo": "razorpay/route",
+      "role": "gateway",
+      "relates_to": [
+        "route"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "cms",
+      "repo": "razorpay/cms",
+      "role": "gateway",
+      "relates_to": [
+        "cms"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "bin-service",
+      "repo": "razorpay/bin-service",
+      "role": "gateway",
+      "relates_to": [
+        "bin-service"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "apm-service",
+      "repo": "razorpay/apm-service",
+      "role": "gateway",
+      "relates_to": [
+        "apm-service"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "cps",
+      "repo": "razorpay/cps",
+      "role": "support",
+      "relates_to": [
+        "cps"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "customer-service",
+      "repo": "razorpay/customer-service",
+      "role": "support",
+      "relates_to": [
+        "customer-service"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "governor-executor",
+      "repo": "razorpay/governor-executor",
+      "role": "support",
+      "relates_to": [
+        "governor-executor"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "dashboard",
+      "repo": "razorpay/dashboard",
+      "role": "frontend",
+      "relates_to": [
+        "dashboard"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    },
+    {
+      "key": "checkout",
+      "repo": "razorpay/checkout",
+      "role": "frontend",
+      "relates_to": [
+        "checkout"
+      ],
+      "ingest": {
+        "l1": false,
+        "readme": true,
+        "top": 10
+      }
+    }
+  ],
+  "devrev": [
+    {
+      "key": "recurring",
+      "query": "recurring payments emandate mandate",
+      "relates_to": [
+        "emandate-service",
+        "subscriptions"
+      ],
+      "ingest": {
+        "l1": false,
+        "limit": 5
+      }
+    }
+  ]
+}

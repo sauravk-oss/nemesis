@@ -11,9 +11,10 @@ query, or file path, auto-detect what it is, fetch the content via the right MCP
 command, normalize it, and ingest it into `workspace/brain.db` via the learning pipeline.
 
 **Your backends:**
-- **Brain API** — `from brain.api import BrainAPI` for source detection, normalization, dedup, ingest
-- **Brain CLI** — `python -m brain ingest` for URL/ID ingestion pipeline
-- **Brain API** — `python -m brain` / `brain.api` for ingest, node/edge operations, and stage/flush pipeline
+- **Brain API** — `from brain.api import BrainAPI`: `detect_source()` classifies a source;
+  `ingest()` is phase-1 (reads local files directly, returns `needs_fetch` for remote sources);
+  `ingest_mcp_response()` is phase-2 (normalizes an LLM-fetched payload → `learn()` → `flush()`, dedups on `(source_type, source_id)`)
+- **Brain CLI** — `python -m brain ingest <source>` (phase-1) and `python -m brain ingest-mcp <type> <id> --payload FILE` (phase-2)
 - **MCP Tools** — Slack, Gmail, Drive, Google Workspace, Calendar, Figma, Canva (via LLM tool calls)
 - **GitHub CLI** — `gh` for PRs, issues, code search across razorpay org
 - **Local filesystem** — Read files, glob directories
@@ -42,56 +43,74 @@ Parse the input after `/franco`:
 
 ## Source Detection
 
-Franco uses source detection patterns from `brain.config.SOURCE_PATTERNS`:
+Franco uses source detection patterns from `brain.config.SOURCE_PATTERNS`
+(`brain.api.BrainAPI.detect_source(source)` returns the classification dict).
+Node type per source comes from `brain.config.SOURCE_NODE_TYPE`. When a
+`--feature` is supplied, the ingested node gets a single `MENTIONED_IN` edge to
+that Feature (created by `ingest_mcp_response`).
 
-| Pattern | Source Type | Node Type | Auto-Edge to Feature |
-|---------|-------------|-----------|---------------------|
-| `slack.com/archives/C.../p...` | `slack_thread` | Signal | SIGNAL_FOR |
-| `slack.com/archives/C...` | `slack_channel` | Signal | SIGNAL_FOR |
-| `docs.google.com/document/d/...` | `drive_doc` | Document | RELATES_TO |
-| `drive.google.com/file/d/...` | `drive_file` | Document | RELATES_TO |
-| `drive.google.com/drive/folders/...` | `drive_folder` | Document | RELATES_TO |
+| Pattern | Source Type | Node Type | Edge to Feature (if `--feature`) |
+|---------|-------------|-----------|----------------------------------|
+| `slack.com/archives/C.../p...` | `slack_thread` | Signal | MENTIONED_IN |
+| `slack.com/archives/C...` | `slack_channel` | SlackChannel | MENTIONED_IN |
+| `docs.google.com/document/d/...` | `drive_doc` | Document | MENTIONED_IN |
+| `drive.google.com/file/d/...` | `drive_file` | Document | MENTIONED_IN |
+| `drive.google.com/drive/folders/...` | `drive_folder` | Document | MENTIONED_IN |
 | `mail.google.com/...#inbox/...` | `gmail_thread` | Email | MENTIONED_IN |
-| `github.com/.../pull/N` | `github_pr` | PR | IMPLEMENTS + OPENS_PR |
-| `github.com/.../issues/N` | `github_issue` | JiraIssue | TRACKS |
-| `github.com/.../commit/...` | `github_commit` | Signal | RELATES_TO |
-| `atlassian.net/browse/...` | `jira_issue` | JiraIssue | TRACKS |
-| `app.devrev.ai/.../tasks/...` | `devrev_task` | JiraIssue | TRACKS |
-| `ISS-N` / `TKT-N` | `devrev_id` | JiraIssue | TRACKS |
-| Local file path | `local_file` | Document | RELATES_TO |
-| Any other URL | `web_url` | WebPage | RELATES_TO |
+| `github.com/.../pull/N` | `github_pr` | PR | MENTIONED_IN |
+| `github.com/.../issues/N` | `github_issue` | JiraIssue | MENTIONED_IN |
+| `github.com/.../commit/...` | `github_commit` | Commit | MENTIONED_IN |
+| `atlassian.net/browse/...` | `jira_issue` | JiraIssue | MENTIONED_IN |
+| `app.devrev.ai/.../tasks/...` | `devrev_task` | JiraIssue | MENTIONED_IN |
+| `ISS-N` / `TKT-N` | `devrev_id` | JiraIssue | MENTIONED_IN |
+| Local file path | `local_file` | Document | MENTIONED_IN |
+| Any other URL | `web_url` | WebPage | MENTIONED_IN |
 
 ## Two-Phase Fetch for MCP Sources
 
 For MCP-backed sources (Slack, Gmail, Drive, Figma, Calendar, Google Sheets), Franco uses
 a two-phase approach:
 
-### Phase 1: Detect + Prepare (Python)
+### Phase 1: Detect + classify (Python)
 ```bash
 python -m brain ingest "<url>" --feature <slug>
 ```
-Returns `fetch_pending: true` with `mcp_tool` and `mcp_params` for MCP sources.
+The brain package **never calls an MCP**. For a remote/MCP-backed source this
+returns `{"status": "needs_fetch", "source_type": ..., "source_id": ..., "node_type": ...}`
+and prints a ready-to-run `ingest-mcp` handback command. (Local files are read
+and ingested in this same step — they return `{"status": "ingested"}` directly.)
 
 ### Phase 2: Fetch + Ingest (LLM)
-When Franco returns `fetch_pending: true`, YOU (the LLM) must:
+When Franco returns `status: needs_fetch`, YOU (the LLM) must:
 
-1. Call the specified MCP tool with the provided params:
+1. Pick the MCP tool for the `source_type` from the **MCP Tool Reference** table
+   below and call it with params derived from `source_id`:
    ```
-   mcp_tool: mcp__plugin_compass_slack-mcp__slack_get_thread_replies
-   mcp_params: {channel: "C0B3U3Z2JG1", thread_ts: "1234567890.123456"}
+   tool:   mcp__plugin_compass_slack-mcp__slack_get_thread_replies
+   params: {channel: "C0B3U3Z2JG1", thread_ts: "1234567890.123456"}
    ```
 
-2. Pass the MCP response back to Franco for normalization + ingestion:
+2. Hand the MCP response back to Franco for normalization + ingestion — either
+   via the API:
    ```python
    from brain.api import BrainAPI
    brain = BrainAPI()
    result = brain.ingest_mcp_response('slack_thread', 'C0B3U3Z2JG1:1234567890',
-       response, feature='<slug>')
+       response, feature='<slug>')   # response = the raw MCP payload (dict or str)
    print(result)
    ```
+   …or via the CLI (write the payload to a JSON file first):
+   ```bash
+   python -m brain ingest-mcp slack_thread 'C0B3U3Z2JG1:1234567890' \
+       --payload /tmp/payload.json --feature <slug>
+   ```
 
-For CLI sources (GitHub, DevRev), Franco fetches directly in Phase 1 — no Phase 2 needed.
-For local files and internal sources, Franco reads directly — no Phase 2 needed.
+`ingest_mcp_response` dedups on `(source_type, source_id)` via the sync cursor:
+re-handing unchanged content returns `{"status": "unchanged"}` and writes nothing.
+
+For CLI sources (GitHub, DevRev), the LLM runs `gh`/`devrev` in Phase 1 and hands
+the output to `ingest-mcp` just like an MCP payload. Local files and directories
+are read directly by `brain ingest` — no Phase 2 needed.
 
 ## MCP Tool Reference (for Phase 2 calls)
 
@@ -113,20 +132,25 @@ For local files and internal sources, Franco reads directly — no Phase 2 neede
 
 For `docs` command (local directory ingestion):
 ```bash
-python -m brain ingest <path> --feature <slug> --project <project_slug>
+python -m brain ingest <dir-path> --feature <slug> --project <project_slug>
 ```
-Ingests all `.md`, `.txt`, `.rst` files recursively. Each file becomes a Document node.
+When `<dir-path>` is a directory, `brain ingest` recurses it and ingests every
+`.md`, `.txt`, `.rst`, `.html` file directly (each becomes a Document node),
+printing a summary `{files, ingested, unchanged, error}`.
 
-For `batch` command, use the Python API for batch ingestion:
+For `batch` command, loop over the sources. Local files/dirs ingest directly;
+each remote source returns `needs_fetch`, which YOU service via phase-2:
 ```python
 from brain.api import BrainAPI
 brain = BrainAPI()
 sources = ["https://razorpay.slack.com/archives/C123/p456", "ISS-12345", "workspace/docs/spec.md"]
 for source in sources:
-    brain.ingest(source, feature="<slug>")
-brain.flush()
+    r = brain.ingest(source, feature="<slug>")
+    if r["status"] == "needs_fetch":
+        # fetch via the MCP/CLI tool for r["source_type"], then:
+        # brain.ingest_mcp_response(r["source_type"], r["source_id"], payload, feature="<slug>")
+        ...
 ```
-Where sources is a list of URLs, IDs, or file paths to collect.
 
 ## Dedup Rules
 

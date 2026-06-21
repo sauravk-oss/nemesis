@@ -16,6 +16,10 @@ description: "Implementation engine — Phase 4 of Nemesis pipeline. Takes solut
     Step 4: Test Generation    — Unit + SLIT + integration tests
     Step 5: Quality Gates      — Language-specific linting + testing
     Step 6: Integration Check  — Cross-service contract verification
+    Step 6.5: PRE-PR GATE      — HARD GATE (iterative): full review +
+                                 100% UT coverage + 100% SLIT coverage,
+                                 feature-scoped. Loops back to Step 3/4
+                                 until everything passes.
     Step 7: PR Creation        — Feature branch, mergeable PR
     Step 8: Deploy Checklist   — Pre-deploy safety verification
     Step 9: Brain Persistence  — Store Implementation nodes + edges
@@ -26,6 +30,8 @@ description: "Implementation engine — Phase 4 of Nemesis pipeline. Takes solut
     NEVER commit secrets, credentials, or .env files.
     User MUST approve generated code before committing.
     Quality gates MUST pass before PR creation.
+    PR creation is BLOCKED until the Step 6.5 gate is fully green:
+    100% UT + 100% SLIT (feature-scoped) and a clean 5-skill review.
 ```
 
 ---
@@ -413,7 +419,204 @@ If the solution uses Splitz/DCS feature flags:
 
 ---
 
+## Step 6.5: Pre-PR Verification Gate (HARD GATE)
+
+This is a **HARD GATE**. Step 7 (PR Creation) is **BLOCKED** until every sub-gate
+below is green. The gate is **iterative**: when a sub-gate fails, loop back to
+Step 3 (code generation) or Step 4 (test generation), regenerate, then re-run the
+gate from the top. Repeat until everything passes — no PR is created with failing
+tests, unresolved review findings, or sub-100% coverage on the feature's own changes.
+
+**Scope rule (critical):** coverage targets apply ONLY to the lines/functions this
+feature changed — NOT the whole repo. Compute the changed set from the diff and
+measure coverage against that set. Pre-existing untested code in the repo is out of
+scope; the feature's own new/modified lines must be fully covered.
+
+### 6.5a — Review Complete Details (full 5-skill review)
+
+Run the complete Nemesis review on the FULL diff (code + tests) across all services:
+
+```
+Skill("engineering:code-review", "<full diff: code + tests, all services>")
+Skill("compass:razorpay-api-review", "<API/contract changes>")
+Skill("engineering:testing-strategy", "<test files + changed functions>")
+Skill("pre-mortem", "<change summary + risk surface>")
+Skill("engineering:deploy-checklist", "<service list + changes + risk items>")
+```
+
+Also apply the 8 Razorpay domain checks: idempotency, reconciliation, amount
+precision, callback ordering, PCI, rate limiting, timeouts, feature flags.
+
+Triage findings:
+- **P0 / Critical** → MUST be resolved. Loop back to Step 3 (code) or Step 4 (tests).
+- **P1** → resolve, or get explicit user acceptance to defer (record as Signal node).
+- **P2 / Nit** → note in PR description; non-blocking.
+
+### 6.5b — SLIT Coverage Gate (100%, feature-scoped)
+
+```bash
+cd workspace/repos/<service>
+
+# 1. Determine the feature's changed non-test source lines
+git diff --name-only <base>...HEAD -- '*.go' | grep -v '_test.go'
+
+# 2. Run the SLIT suite with coverage over the changed packages
+go test -tags slit ./... -coverprofile=slit_cover.out -covermode=atomic
+
+# 3. Intersect coverage with the changed line set (feature-scoped %)
+go tool cover -func=slit_cover.out
+```
+
+Pass condition: **every changed non-test line reachable by SLIT is covered (100%
+feature-scoped)** AND all SLIT tests pass.
+If < 100%: list the uncovered changed lines, loop back to **Step 4** to add SLIT
+cases that exercise them, then re-run 6.5 from the top.
+
+### 6.5c — UT Coverage Gate (100%, feature-scoped)
+
+```bash
+cd workspace/repos/<service>
+
+# Unit-test coverage over the changed packages
+go test ./... -coverprofile=ut_cover.out -covermode=atomic
+go tool cover -func=ut_cover.out
+```
+
+Pass condition: **every changed non-test line is covered by unit tests (100%
+feature-scoped)** AND all unit tests pass.
+If < 100% or any failure: loop back to **Step 4** (add/fix unit tests) — or **Step 3**
+if a failure reveals a code defect — then re-run 6.5 from the top.
+
+> Coverage-tool note: for languages without a clean line-intersection tool, fall back
+> to a function-level check — every changed/added function must have at least one
+> direct test exercising its happy path AND each of its error/return-early branches.
+> For this feature (`registerWithBifrost`) that means a test per eligibility gate.
+
+### 6.5d — Retrigger Loop (iterate until green)
+
+Decision logic for each failure type:
+
+| Failure | Loop back to | Then |
+|---------|--------------|------|
+| Review P0/Critical (logic) | Step 3 (code) | re-run 5 → 6 → 6.5 |
+| Review finding in tests | Step 4 (tests) | re-run 6.5 |
+| SLIT coverage < 100% | Step 4 (SLIT tests) | re-run 6.5b/c |
+| UT coverage < 100% | Step 4 (unit tests) | re-run 6.5c |
+| Test failure — code bug | Step 3 (code) | re-run 5 → 6 → 6.5 |
+| Test failure — wrong test | Step 4 (tests) | re-run 6.5 |
+
+After any loop that touched code (Step 3), re-run Step 5 (quality gates) and Step 6
+(integration check) before re-entering 6.5. Track the iteration count.
+
+**Iteration cap:** 5 iterations. If the gate is still red after 5 passes, STOP and
+escalate to the user with the precise blocking items (uncovered lines, failing tests,
+unresolved findings) — do not create a PR.
+
+### 6.5e — Generate Test Report (after 6.5a–6.5d are green)
+
+Once review is clean and coverage/tests are green, produce the **detailed test
+report** that maps each test → the feature requirement / RiskItem / DevRev issue it
+covers → what it asserts → why it exists. This is a required gate artifact: no PR is
+created without it.
+
+The toolchain runs at the skill layer (`scripts/test_report.py` is pure Python — it
+NEVER runs `go` and NEVER calls an MCP; the LLM runs `go` and feeds outputs in):
+
+```bash
+cd workspace/repos/<service>
+
+# Machine outputs (one set per service; if multiple services, render one report each
+# or merge the manifests). These are the SAME runs as 6.5b/6.5c — reuse the profiles.
+go test -json ./... > /tmp/<slug>-results.json
+go test ./... -coverprofile=/tmp/<slug>-cover.out -covermode=atomic
+```
+
+Then assemble the **tests manifest** — the semantic step only the LLM can do. For
+every test added/changed in 6.5b/6.5c, write one entry mapping it to the feature.
+Resolve the `covers`/`issue` fields against the real Requirement / RiskItem nodes from
+Solutioning so the report references actual feature issues, not invented ones:
+
+```bash
+python -m brain search "" --type Requirement -p <slug>
+python -m brain search "" --type RiskItem -p <slug>
+```
+
+```json
+{
+  "feature": "<slug>", "devrev": "<TICKET>", "service": "<service>",
+  "tests": [
+    {
+      "name": "<TestFuncName>",
+      "file": "<path/to/_test.go>",
+      "type": "unit | slit",
+      "covers": "<requirement / RiskItem this test guards>",
+      "issue":  "<DevRev / issue id this relates to>",
+      "asserts":"<what the test actually asserts>",
+      "why":    "<why this test exists / what regression it prevents>"
+    }
+  ],
+  "gaps": [ {"area": "<deferred area>", "reason": "<why deferred>"} ]
+}
+```
+
+Render the report:
+
+```bash
+python3 scripts/test_report.py build-report \
+    --feature <slug> \
+    --tests   /tmp/<slug>-manifest.json \
+    --coverage /tmp/<slug>-cover.out \
+    --results  /tmp/<slug>-results.json
+# -> writes workspace/features/<slug>/test-report.md, prints a summary JSON
+```
+
+Pass condition: the rendered report's **Gate status is GREEN** (0 failed/incomplete)
+AND every test added in 6.5b/6.5c appears as a row with a non-empty Covers / Asserts /
+Why. If the verdict is RED, a test is failing — loop back via 6.5d. If any new test is
+missing its mapping, complete the manifest and re-render. `test-report.md` is a tracked
+feature artifact: the Step 9 push hook (`feature_sync`) mirrors it to Drive, and the PR
+description (Step 7b) links to it.
+
+### Exit Criteria (ALL must be true to leave the gate)
+
+- 6.5a — 5-skill review: **0 unresolved P0/Critical**, P1s resolved or user-accepted
+- 6.5b — SLIT coverage (feature-scoped): **100%**
+- 6.5c — UT coverage (feature-scoped): **100%**
+- All tests passing: **unit + SLIT, 0 failures**
+- 6.5e — Test report generated: `workspace/features/<slug>/test-report.md` exists,
+  **Gate status GREEN**, and every test added in this feature is mapped to a real
+  requirement / RiskItem / issue (non-empty Covers + Asserts + Why)
+- Quality gates (Step 5): **green**
+- Integration check (Step 6): **green**
+
+**Until 6.5a–6.5e are ALL green, Step 7 (PR Creation) is BLOCKED.** There is no path
+from Step 6 to Step 7 that bypasses this gate.
+
+**PAUSE POINT 4.5** -- After the gate passes:
+- Present: review summary (findings resolved), UT coverage %, SLIT coverage %,
+  total tests passing, iteration count, and the test-report path with its Gate status.
+- ASK "Pre-PR gate green: UT 100%, SLIT 100%, review clean, <N> tests passing after
+  <K> iteration(s), test-report.md generated (GREEN). Proceed to PR creation?"
+- Only on approval: proceed to Step 7.
+
+Persist the gate result as a Signal node:
+```bash
+python -m brain add-node Signal "pre_pr_gate:<feature_name>" \
+    -d '{"ut_coverage":100,"slit_coverage":100,"tests_passing":<N>,
+         "review_p0_open":0,"iterations":<K>,"test_report":"green","status":"green"}' \
+    -p <feature_slug>
+python -m brain add-edge Signal "pre_pr_gate:<feature_name>" Feature "<feature_name>" SIGNAL_FOR
+```
+
+---
+
 ## Step 7: PR Creation
+
+> **Precondition:** Step 6.5 (Pre-PR Verification Gate) — sub-gates 6.5a–6.5e — MUST
+> all be green. Do NOT create a PR if UT or SLIT coverage is below 100%
+> (feature-scoped), if any test is failing, if any P0/Critical review finding is
+> unresolved, or if `workspace/features/<slug>/test-report.md` is missing or its Gate
+> status is not GREEN (6.5e). The test report is linked from the PR body (7b).
 
 Create a mergeable GitHub PR for each service.
 
@@ -462,6 +665,11 @@ gh pr create --title "[<slug>] <short description>" --body "$(cat <<'EOF'
 | SLIT Tests | <N> | PASS |
 | Integration | <N> | PASS |
 
+UT + SLIT coverage 100% (feature-scoped). Full per-test → requirement/issue mapping
+in the test report (paste the **Tests Added** table from `test-report.md` here, or
+summarize): each test lists what it asserts, why it exists, and the feature issue it
+covers.
+
 ## Quality Gates
 
 | Gate | Status |
@@ -483,6 +691,7 @@ gh pr create --title "[<slug>] <short description>" --body "$(cat <<'EOF'
 
 ## References
 
+- Test report: `workspace/features/<slug>/test-report.md` (per-test → feature mapping)
 - Solution: `workspace/features/<slug>/solution.md`
 - Overview: `workspace/features/<slug>/overview.md`
 - Feature: <feature_name> in Brain graph
@@ -565,6 +774,33 @@ python -m brain add-edge Signal "implementation:<feature_name>" Feature "<featur
 python -m brain learn-flush
 ```
 
+### Step 9 push hook — mirror the feature folder to Drive
+
+After `learn-flush`, push the (now-complete) feature folder — including the new
+`test-report.md` — to Google Drive so the feature is shareable. This is the same
+two-phase `feature_sync` flow used at the end of every Nemesis phase
+(`commands/nemesis.md`): Python decides *what* to push, the LLM does the Drive I/O,
+Python records the result. `feature_sync.py` NEVER calls an MCP.
+
+```bash
+# 1. What changed since the last push? (sha256 + mtime diff)
+python3 scripts/feature_sync.py status --feature <slug>
+
+# 2. If needs_push: get the upload plan (resolves/creates nemesis/features/<slug>/)
+python3 scripts/feature_sync.py push-plan --feature <slug>
+```
+
+Then the LLM executes the `resolve_steps` (search/create the Drive subfolder) and
+uploads each file in `uploads[]` via the Drive MCP (`create_file` for `create`,
+`update_drive_file` for `update`, reusing `existing_file_id`). Finally record the
+result so the next push is incremental:
+
+```bash
+python3 scripts/feature_sync.py record-push --feature <slug> --results <results.json>
+```
+
+If `status` reports `needs_push: false`, skip — nothing changed (idempotent).
+
 ---
 
 ## Implementation Status Command
@@ -580,9 +816,10 @@ Step 3 (Code Generation):   [DONE] 8 files modified
 Step 4 (Test Generation):   [DONE] 23 unit + 5 SLIT tests
 Step 5 (Quality Gates):     [DONE] 12/12 pass
 Step 6 (Integration Check): [DONE] 2 cross-service contracts verified
+Step 6.5 (Pre-PR Gate):     [DONE] UT 100%, SLIT 100%, review clean, report GREEN (2 iterations)
 Step 7 (PR Creation):       [DONE] PR #456 (emandate-service), PR #789 (api)
 Step 8 (Deploy Checklist):  [DONE] 8/8 items checked
-Step 9 (Brain Persistence): [DONE] 4 nodes, 6 edges created
+Step 9 (Brain Persistence): [DONE] 4 nodes, 6 edges, Drive push (test-report.md + artifacts)
 ```
 
 ---
@@ -701,3 +938,6 @@ For tightly coupled changes:
 6. Never modify files not specified in solution.md
 7. Persist all implementation artifacts to Brain
 8. Store dialogue Q&A as Signal nodes
+9. NEVER create a PR until the Step 6.5 gate is green — 100% UT coverage AND 100%
+   SLIT coverage (both feature-scoped), all tests passing, and a clean 5-skill review.
+   The gate is iterative: loop back to Step 3/4 and regenerate until it passes.

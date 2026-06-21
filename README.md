@@ -20,47 +20,71 @@ Each phase is **interactive** — Nemesis asks questions at every decision point
 
 - [Claude Code](https://claude.ai/code) (CLI or Desktop)
 - Python 3.9+
-- `gh` CLI (GitHub)
+- `gh` CLI (GitHub), authenticated (`gh auth login`)
 
-### Setup
+### Setup (4 steps)
 
 ```bash
-# Clone
+# 1. Clone
 git clone https://github.com/sauravk-oss/nemesis.git
 cd nemesis
 
-# Install Python deps
-pip3 install -r requirements.txt
-
-# Initialize brain (creates workspace dirs, brain.db, seeds services)
-python3 -m brain init
-
-# Verify
-python3 -m brain stats
+# 2. Run the idempotent setup script
+#    - installs Python deps, checks gh auth, validates MCP connectors,
+#      creates .env, and runs `brain init`
+./setup.sh
+#    Read-only diagnostics (no installs, no writes):  ./setup.sh --check
 ```
 
-### Run with Claude Code
+```text
+# 3. Connect MCPs inside Claude Code (one-time, OAuth — guided)
+#    setup.sh CANNOT connect OAuth MCPs; it only tells you which are missing.
+#    Open Claude Code and connect: Slack, Google Drive, Gmail, Google Calendar.
+#    Tokens are managed by Claude Code — never stored in this repo.
 
-```bash
-# Open in Claude Code
-claude
+# 4. Bootstrap + health-check the brain, inside Claude Code:
+/nemesis init      # seed services + sources + experts (L1) + bounded live L1 ingest
+/nemesis doctor    # green/amber/red health table with remediation hints
+```
 
-# Start Nemesis — shows features dashboard
-/nemesis
+> Full walkthrough — MCP OAuth, env vars, troubleshooting — is in **[INSTALL.md](INSTALL.md)**.
 
-# Create a new feature
-/nemesis new <feature-name>
+### Day-to-day with Claude Code
 
-# Run specific phases
-/nemesis ideation <slug>
-/nemesis solutioning <slug>
-/nemesis techspec <slug>
+```text
+/nemesis                       # features dashboard (no args)
+/nemesis new <name>            # create a new feature → Ideation
+/nemesis new <name> <drive-link>   # PULL a shared feature from Drive + rebuild brain
+/nemesis <slug>                # resume a feature at its next phase
 
-# Implementation (code gen + PR)
-/implement <slug>
+# Phases
+/nemesis ideation <slug>       # Phase 1: overview (As-Is → To-Be)
+/nemesis solutioning <slug>    # Phase 2: solution design + risk analysis
+/nemesis techspec <slug>       # Phase 3: tech spec document
+/implement <slug>              # Phase 4: code gen + tests + gated PR
+/e2e <slug>                    # Phase 5: end-to-end testing
 
-# E2E testing
-/e2e <slug>
+# Feature sharing (Google Drive)
+/nemesis sync <slug>           # PUSH a feature's artifacts to Drive
+/nemesis pull <drive-link>     # PULL a feature from Drive + rebuild brain locally
+
+# System
+/nemesis init                  # bootstrap brain (sources + experts + live L1)
+/nemesis doctor                # health check (deps, gh, MCPs, brain.db, sources)
+```
+
+### Sharing a feature with a teammate
+
+Feature artifacts (overview, solution, tech-spec, implementation, test-report) are
+pushed to a Google Drive folder after each phase. `brain.db` is **never** copied — a
+teammate rebuilds it locally from the pulled artifacts:
+
+```text
+# You (after working a feature):
+/nemesis sync my-feature              # pushes artifacts to nemesis/features/my-feature/
+
+# Teammate (fresh clone, after ./setup.sh + MCP connect):
+/nemesis new my-feature <drive-link>  # pulls every artifact, rebuilds brain + feature state
 ```
 
 ## Architecture
@@ -111,26 +135,42 @@ Parallel sub-agents for heavy-lift work: code review, implementation, test gener
 
 ## Brain CLI
 
+The brain is pure Python — `python3 -m brain <command>`. It **never calls MCPs**;
+only the LLM (skill layer) makes MCP calls and hands payloads back to the brain
+(the Franco two-phase pattern). Run `python3 -m brain` with no args for the full list.
+
 ```bash
-# Stats
+# --- Bootstrap (what /nemesis init orchestrates) ---
+python3 -m brain init                  # dirs + schema + seed 45 services + 16 skills
+python3 -m brain register-sources      # DataSource nodes from config/sources.json
+python3 -m brain init-experts --level 1 # seed ProjectExpert nodes (idempotent)
+python3 -m brain doctor                # green/amber/red health table
+
+# --- Query ---
 python3 -m brain stats
+python3 -m brain search "payment" --type Function
+python3 -m brain search-code "handlePayment" -p emandate-service
+python3 -m brain context "emandate payment flow" -b 4000
+python3 -m brain impact emandate-service
+python3 -m brain health emandate-service
 
-# Search
-python3 -m brain search "payment" --type Function --limit 10
-python3 -m brain search-code "handlePayment" --project emandate-service
+# --- Learning pipeline (Franco two-phase ingest) ---
+python3 -m brain ingest <local-file> --feature my-feature    # phase 1: local/direct
+python3 -m brain ingest-mcp slack <channel-id> --payload msgs.json  # phase 2: LLM payload
+python3 -m brain learn-flush           # flush staged items → nodes + edges
 
-# Context (budget-limited retrieval)
-python3 -m brain context "emandate payment flow" --budget 4000
+# --- Feature lifecycle ---
+python3 -m brain feature-create "My Feature"
+python3 -m brain feature-list
+python3 -m brain feature-health "My Feature"
 
-# Impact analysis
-python3 -m brain impact emandate-service --cross-service
-
-# Health check
-python3 -m brain health
-
-# Migration (from old rubick.db)
+# --- Migration (from legacy rubick.db) ---
 python3 -m brain migrate-rubick workspace/rubick.db
 ```
+
+> `brain init` seeds services + the skill registry but **not** experts. Experts are
+> seeded separately by `brain init-experts` and level up (L1→L5) via XP from feature
+> work. The full bootstrap is orchestrated by `/nemesis init`.
 
 ## Directory Structure
 
