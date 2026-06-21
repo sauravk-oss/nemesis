@@ -147,6 +147,7 @@ Also scan `workspace/features/` for directories to catch any features not yet in
     /nemesis status <slug>             Detailed feature status
     /nemesis sync <slug>               Push feature artifacts to Drive
     /nemesis pull <drive-link>         Pull a shared feature + rebuild brain
+    /nemesis report <slug>             Regenerate AI-pipeline HTML (collapsible tree)
     /nemesis init                      Bootstrap brain (sources + L1 ingest)
     /nemesis doctor                    Health check (deps, MCPs, brain, sources)
     Just describe what you need — Nemesis will figure out the rest.
@@ -405,6 +406,38 @@ the learning pipeline over them.
    through the same learn → flush pipeline.)
 5. Verify: `python -m brain feature-health <slug>` is populated, then resume the feature
    at whatever phase its artifacts indicate (phase detection from Step 3 of the Dashboard).
+
+### System Command: `/nemesis report <slug>` — regenerate the AI-pipeline HTML report
+
+Renders (or re-renders) `workspace/features/<slug>/pipeline-report.html`: a single
+self-contained HTML showing the **complete AI pipeline** as collapsible tree nodes —
+every phase, the documents it produced, the skills used + their input/output, each
+iteration's input→output, the embedded test-added report, the archive of superseded
+artifacts, and a Brain-powered knowledge node (live node/edge counts + feature health),
+with a redirect Drive URL for "more details". `/implement` Step 9b runs this
+automatically at the end of Implementation; this command lets you regenerate it at any
+phase (e.g. right after Tech Spec) or refresh it after edits.
+
+`scripts/pipeline_report.py` is pure Python and NEVER calls an MCP — it reads the local
+feature folder + brain.db only.
+
+1. (Optional) Assemble a **pipeline manifest** narrating skills/iterations per phase —
+   the semantic layer auto-discovery can't infer (see schema in `/implement` Step 9b).
+   Without it the report still renders every discovered doc + archive + the Brain node.
+2. Resolve the Drive URL for the redirect node: read `.drive.json` `share_url` if the
+   feature was already synced, else run `/nemesis sync <slug>` first (or pass the
+   nemesis root folder URL).
+3. Render:
+   ```bash
+   python3 scripts/pipeline_report.py build \
+       --feature  <slug> \
+       --manifest /tmp/<slug>-pipeline-manifest.json \
+       --drive-url "<feature Drive folder share URL>" \
+       --title    "<Feature Name> — AI Pipeline"
+   # -> writes workspace/features/<slug>/pipeline-report.html
+   ```
+4. The HTML is a tracked artifact — push it to Drive via the `/nemesis sync <slug>`
+   flow so the shared folder carries the report alongside the feature docs.
 
 ---
 
@@ -978,18 +1011,35 @@ Structure:
   - Core Formula / Expected User Experience
   - Expected Flow per path with concrete numeric examples
   - Side-by-Side: As-Is vs To-Be
+- Open Questions (Next Iteration) -- **mandatory section, never omit**
+  - A numbered list of every unresolved question that blocks or would refine the design.
+  - For each question, a one-line row: **Q**, **Why it matters**, **Who/what can resolve it**
+    (team, @Slash, a doc, a code trace), and the **Working assumption** Ideation used to
+    proceed for now.
+  - Mark each `[ ] open` or `[x] resolved`. The first Ideation pass leaves them `[ ] open`;
+    a second iteration (re-run of Ideation on the same slug) flips the ones that got answers
+    to `[x] resolved` and records the resolution inline.
+  - These are exactly the items to close in a 2nd ideation pass, before (or alongside)
+    Solutioning. If there are genuinely none, write "No open questions — design is fully
+    specified" rather than dropping the section.
 
-**overview.md contains ONLY flow descriptions:**
+**overview.md contains flow descriptions + the open-questions ledger:**
 - As-Is: how things work today, what breaks, with code references and examples
 - To-Be: how things should work, with expected behavior and examples
 - Cross-project service map and API chain
+- Open Questions (Next Iteration): the resolvable-question ledger described above
 
 **overview.md does NOT contain:**
 - Fix details (code changes) -- these go in solution.md
 - Phased rollout strategy -- goes in solution.md
 - Requirements tables -- go in Rubick as Requirement nodes
 - Edge cases / failure modes -- go in Rubick as RiskItem nodes
-- Open questions -- go in Rubick as Signal nodes
+
+**Open questions are dual-written:** they appear in the overview.md "Open Questions
+(Next Iteration)" section (human-readable, iterable) AND persist to Brain as Signal nodes
+(machine-recallable). On a re-run, Ideation reads prior `dialogue:`/open-question Signal
+nodes (`python -m brain search "open-question:" --type Signal`) so previously answered
+questions are pre-filled as `[x] resolved` and never re-asked.
 
 **Artifact 2: overview.html**
 
@@ -1004,6 +1054,8 @@ UI rendering contexts.
 2. To-Be Flow per path -- sequence diagram with success annotations
 3. Cross-project service map -- flowchart showing service dependencies
 4. As-Is vs To-Be comparison -- HTML table
+5. Open Questions (Next Iteration) -- HTML table (Q / why / resolver / assumption / status),
+   `open` rows tagged critical, `resolved` rows tagged pass
 
 **HTML Template:**
 
@@ -1089,6 +1141,16 @@ flowchart TB
 </table>
 </div>
 
+<!-- Open Questions (Next Iteration) -->
+<h2>Open Questions (Next Iteration)</h2>
+<div class="card">
+<table>
+<tr><th>#</th><th>Question</th><th>Why it matters</th><th>Resolver</th><th>Working assumption</th><th>Status</th></tr>
+<tr><td>1</td><td>...</td><td>...</td><td>team / @Slash / doc / code-trace</td><td>...</td><td><span class="tag tag-critical">open</span></td></tr>
+<!-- resolved rows use <span class="tag tag-pass">resolved</span> and add the resolution to the assumption cell -->
+</table>
+</div>
+
 <script>mermaid.initialize({ theme: 'dark', startOnLoad: true });</script>
 </body>
 </html>
@@ -1123,6 +1185,20 @@ python -m brain add-edge Feature "<feature_name>" Requirement "FR-1: <title>" HA
 
 **ArchDecision nodes**, **Cross-project edges**, **Signal nodes** -- same as prior protocol.
 
+**Open-question Signal nodes** (one per item in the "Open Questions (Next Iteration)"
+section -- this is what lets a 2nd Ideation pass recall and pre-resolve them):
+```bash
+python -m brain add-node Signal "open-question:<feature_slug>:<n>" \
+    -d '{"question":"<the question>","why":"<why it matters>",
+         "resolver":"<team|@slash|doc|code-trace>","assumption":"<working assumption>",
+         "status":"open","feature":"<feature_name>","iteration":1}' \
+    -p <feature_slug>
+python -m brain add-edge Signal "open-question:<feature_slug>:<n>" Feature "<feature_name>" SIGNAL_FOR
+```
+On a re-run, first `python -m brain search "open-question:<feature_slug>" --type Signal` —
+carry forward any `status:open` items, flip resolved ones to `[x]` in overview.md, and
+bump their Signal `status` to `resolved` with a `resolution` field.
+
 **Learning pipeline**:
 ```bash
 python -m brain add-node Signal "ideation_overview:<feature_name>" \
@@ -1150,10 +1226,10 @@ After Ideation completes, render:
 
 **TL;DR**: <one-sentence summary>
 **Complexity**: <T-shirt> | **Services**: <N> | **Requirements**: <N> FR + <N> NFR
-**Open Questions**: <N> (must resolve before solutioning)
+**Open Questions**: <N> open / <N> resolved (see "Open Questions (Next Iteration)" in overview.md — resolve in a 2nd pass)
 
 ### Files Generated
-- `workspace/features/<slug>/overview.md` -- full overview
+- `workspace/features/<slug>/overview.md` -- full overview (incl. Open Questions ledger)
 - `workspace/features/<slug>/overview.html` -- visual flow (open in browser)
 
 ### Rubick Nodes Created
@@ -1199,7 +1275,9 @@ and fix it before proceeding.
 - [ ] The As-Is flow produces the broken behavior when traced with concrete numbers
 - [ ] The To-Be flow produces the correct behavior when traced with concrete numbers
 - [ ] @Slash was queried for cross-project context (>= 2 queries)
-- [ ] Open questions are explicitly listed
+- [ ] overview.md has an "Open Questions (Next Iteration)" section with every open item as
+      a `[ ] open` row (Q / why / resolver / working assumption), or the explicit
+      "No open questions" line — and each open item also persisted as an `open-question:` Signal node
 
 ### Ideation Anti-Patterns
 
@@ -1223,6 +1301,13 @@ and fix it before proceeding.
 Senior Staff Software Engineer. Designs a bulletproof, code-level implementation plan.
 Takes overview.md (As-Is + To-Be flows) and cross-checks it line by line against the
 actual codebase to produce a definitive solution.md.
+
+**Open-questions handoff:** Solutioning reads the "Open Questions (Next Iteration)" ledger
+from overview.md (and `python -m brain search "open-question:<slug>" --type Signal`). Each
+question it answers through code tracing / @Slash is flipped to `[x] resolved` in overview.md
+with the resolution recorded, and its `open-question:` Signal `status` bumped to `resolved`.
+Any question still open after Solutioning is surfaced in solution.md as a design assumption
++ risk, so nothing silently disappears between iterations.
 
 **Cardinal rule: CODE IS THE SOURCE OF TRUTH.**
 Do not hallucinate architecture. Do not assume what a function does -- read it.
@@ -1815,6 +1900,7 @@ While Nemesis is designed for natural language, power users can use direct comma
 | `new <name> [drive-link]` | Create a feature; with a Drive link → pull + rebuild |
 | `sync <slug>` | Push feature artifacts to Drive (feature_sync push) |
 | `pull <drive-link>` | Pull a shared feature + rebuild brain (never ships brain.db) |
+| `report <slug>` | Regenerate AI-pipeline HTML report (collapsible tree, brain-powered) |
 | `init` | Bootstrap brain: validate env → seed sources/experts → bounded L1 ingest |
 | `doctor` | Health check (deps, brain.db, sources, experts, gh, skills, MCPs) |
 

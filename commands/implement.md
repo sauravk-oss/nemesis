@@ -577,6 +577,63 @@ missing its mapping, complete the manifest and re-render. `test-report.md` is a 
 feature artifact: the Step 9 push hook (`feature_sync`) mirrors it to Drive, and the PR
 description (Step 7b) links to it.
 
+### 6.5f — Generate Change Report (after 6.5e is green)
+
+The test report answers *"which tests exist and what do they guard?"*. The **change
+report** answers the broader question the user asked for: *after review + test-run +
+fix, **what changed and why**, **which tests were added and pass**, and **which tests
+still need to pass** before we can fully ramp?* It is a required gate artifact and is
+linked from the PR body (Step 7b).
+
+`scripts/change_report.py` is pure Python — it NEVER runs `go`/`git` and NEVER calls an
+MCP. It reuses the same `go test -json` / coverage parsers as `test_report.py`, so the
+test status it shows is the **same** status the gate enforced (one source of truth). The
+LLM assembles a **change manifest** describing the semantic story (what/why/covers/
+resolution — none of which a parser can infer), reusing the machine outputs from 6.5e:
+
+```bash
+python -m brain search "" --type Requirement -p <slug>   # resolve covers/issue against real nodes
+python -m brain search "" --type RiskItem   -p <slug>
+```
+
+```json
+{
+  "feature": "<slug>", "devrev": "<TICKET>", "service": "<service>",
+  "branch": "feat/<slug>-implementation",
+  "summary": "<one paragraph: the business + technical why of this change set>",
+  "changes": [
+    {"file":"<path>","kind":"modify","what":"<what changed>",
+     "why":"<why>","covers":"<FR / RiskItem / issue>","loc":"+<N>/-<M>"}
+  ],
+  "tests_added":   [ {"name":"<TestFn>","file":"<_test.go>","type":"unit|slit",
+                      "status":"passing","covers":"<req/risk>","why":"<regression guarded>"} ],
+  "pending_tests": [ {"name":"<TestFn>","reason":"<why it can't pass yet, e.g. prod creds pending>",
+                      "blocks":"full ramp (non-blocking for merge)"} ],
+  "review": [ {"finding":"<P0/P1 item>","severity":"p0|p1|...","resolution":"<how resolved>"} ]
+}
+```
+
+Render the report (reuse the SAME machine outputs from 6.5e):
+
+```bash
+python3 scripts/change_report.py build \
+    --feature  <slug> \
+    --changes  /tmp/<slug>-change-manifest.json \
+    --results  /tmp/<slug>-results.json \
+    --coverage /tmp/<slug>-cover.out
+# -> writes workspace/features/<slug>/change-report.md, prints a verdict JSON
+```
+
+The printed `verdict` is the merge gate signal:
+- **`mergeable: true`** — no failing test and no unresolved blocking (P0/Critical) review
+  finding. `pending_tests` (e.g. behind prod credentials / a Splitz ramp) are tracked as
+  **ramp blockers**, not merge blockers — they appear in §4 "Pending Tests" of the report.
+- **`mergeable: false`** — a test is failing or a P0/Critical finding is open: loop back
+  via 6.5d. Do NOT proceed to Step 7.
+
+`change-report.md` is a tracked feature artifact: the Step 9 push hook mirrors it to
+Drive and the PR description (Step 7b) links to it.
+
 ### Exit Criteria (ALL must be true to leave the gate)
 
 - 6.5a — 5-skill review: **0 unresolved P0/Critical**, P1s resolved or user-accepted
@@ -586,10 +643,13 @@ description (Step 7b) links to it.
 - 6.5e — Test report generated: `workspace/features/<slug>/test-report.md` exists,
   **Gate status GREEN**, and every test added in this feature is mapped to a real
   requirement / RiskItem / issue (non-empty Covers + Asserts + Why)
+- 6.5f — Change report generated: `workspace/features/<slug>/change-report.md` exists
+  and its **verdict is `mergeable: true`** (no failing test, no unresolved P0/Critical
+  review finding; `pending_tests` are ramp blockers, not merge blockers)
 - Quality gates (Step 5): **green**
 - Integration check (Step 6): **green**
 
-**Until 6.5a–6.5e are ALL green, Step 7 (PR Creation) is BLOCKED.** There is no path
+**Until 6.5a–6.5f are ALL green, Step 7 (PR Creation) is BLOCKED.** There is no path
 from Step 6 to Step 7 that bypasses this gate.
 
 **PAUSE POINT 4.5** -- After the gate passes:
@@ -691,7 +751,11 @@ covers.
 
 ## References
 
+- DevRev ticket: <TICKET-ID> (link)
+- Change report: `workspace/features/<slug>/change-report.md` (what changed + why, tests added/pending, verdict)
 - Test report: `workspace/features/<slug>/test-report.md` (per-test → feature mapping)
+- Pipeline report (AI usage, collapsible tree): `workspace/features/<slug>/pipeline-report.html` + Drive link
+- Tech Spec: `workspace/features/<slug>/tech-spec.md`
 - Solution: `workspace/features/<slug>/solution.md`
 - Overview: `workspace/features/<slug>/overview.md`
 - Feature: <feature_name> in Brain graph
@@ -774,10 +838,56 @@ python -m brain add-edge Signal "implementation:<feature_name>" Feature "<featur
 python -m brain learn-flush
 ```
 
+### Step 9b — Generate the pipeline report (AI-usage HTML, collapsible tree)
+
+After `learn-flush` (so Brain has the complete feature state), render the **final
+pipeline report** — a single self-contained HTML that shows the *entire AI pipeline*:
+every phase, the documents it produced, the skills it used and their output, each
+iteration's input→output, the embedded test-added report, and an archive of superseded
+artifacts — all as collapsible tree nodes, powered by Brain (it queries brain.db for
+the live feature health + node counts), with a redirect Drive URL for more details.
+
+`scripts/pipeline_report.py` is pure Python — it NEVER calls an MCP. It auto-discovers
+the feature's docs + archive and embeds them (Markdown rendered inline; `.html` docs via
+sandboxed `<iframe srcdoc>`). The LLM optionally assembles a **pipeline manifest** that
+narrates the skill usage / iterations per phase (the semantic layer a parser can't infer):
+
+```json
+{
+  "title": "<Feature Name> — AI Pipeline",
+  "phases": [
+    {"name":"Ideation","docs":["overview.md","overview.html"],
+     "skills":[{"skill":"product-management:brainstorm","tier":"skill",
+                "input":"<what it was asked>","output":"<what it produced>"}],
+     "iterations":[{"n":1,"input":"<sources>","output":"<overview v1>"}],
+     "open_questions":[{"q":"<...>","status":"open|resolved"}]},
+    {"name":"Solutioning","docs":["solution.md","solution.html"],"skills":[...]},
+    {"name":"Tech Spec","docs":["tech-spec.md"],"skills":[...]},
+    {"name":"Implementation","docs":["change-report.md","test-report.md"],"skills":[...]}
+  ]
+}
+```
+
+```bash
+python3 scripts/pipeline_report.py build \
+    --feature   <slug> \
+    --manifest  /tmp/<slug>-pipeline-manifest.json \
+    --drive-url "<the nemesis/features/<slug> Drive folder share URL>" \
+    --title     "<Feature Name> — AI Pipeline"
+# -> writes workspace/features/<slug>/pipeline-report.html, prints a summary JSON
+```
+
+The manifest is optional: without it the report still renders every discovered doc +
+archive + the Brain-powered knowledge node; with it, each phase also shows the skills,
+their input/output, and the iteration trail. `pipeline-report.html` is a tracked
+artifact and is pushed to Drive by the push hook below (the `--drive-url` should point at
+the feature's Drive subfolder so the report's "more details" node links back to it).
+
 ### Step 9 push hook — mirror the feature folder to Drive
 
 After `learn-flush`, push the (now-complete) feature folder — including the new
-`test-report.md` — to Google Drive so the feature is shareable. This is the same
+`test-report.md`, `change-report.md`, and `pipeline-report.html` — to Google Drive so
+the feature is shareable. This is the same
 two-phase `feature_sync` flow used at the end of every Nemesis phase
 (`commands/nemesis.md`): Python decides *what* to push, the LLM does the Drive I/O,
 Python records the result. `feature_sync.py` NEVER calls an MCP.
@@ -816,10 +926,10 @@ Step 3 (Code Generation):   [DONE] 8 files modified
 Step 4 (Test Generation):   [DONE] 23 unit + 5 SLIT tests
 Step 5 (Quality Gates):     [DONE] 12/12 pass
 Step 6 (Integration Check): [DONE] 2 cross-service contracts verified
-Step 6.5 (Pre-PR Gate):     [DONE] UT 100%, SLIT 100%, review clean, report GREEN (2 iterations)
+Step 6.5 (Pre-PR Gate):     [DONE] UT 100%, SLIT 100%, review clean, test+change reports GREEN (2 iterations)
 Step 7 (PR Creation):       [DONE] PR #456 (emandate-service), PR #789 (api)
 Step 8 (Deploy Checklist):  [DONE] 8/8 items checked
-Step 9 (Brain Persistence): [DONE] 4 nodes, 6 edges, Drive push (test-report.md + artifacts)
+Step 9 (Brain Persistence): [DONE] 4 nodes, 6 edges, pipeline-report.html, Drive push (all artifacts)
 ```
 
 ---

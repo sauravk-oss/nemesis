@@ -16,6 +16,16 @@ Each phase is **interactive** — Nemesis asks questions at every decision point
 
 ## Quick Start
 
+### Easiest path (TL;DR — 3 commands + 1 click)
+
+```bash
+git clone https://github.com/sauravk-oss/nemesis.git && cd nemesis
+./setup.sh            # installs deps, checks gh, validates MCPs, runs brain init
+```
+Then inside **Claude Code**: connect the OAuth MCPs when prompted (Slack / Drive / Gmail /
+Calendar — one click each), then run `/nemesis init` and `/nemesis doctor`. Done — you have
+a working brain. Everything below is the same path with detail.
+
 ### Prerequisites
 
 - [Claude Code](https://claude.ai/code) (CLI or Desktop)
@@ -68,10 +78,26 @@ cd nemesis
 /nemesis sync <slug>           # PUSH a feature's artifacts to Drive
 /nemesis pull <drive-link>     # PULL a feature from Drive + rebuild brain locally
 
+# Reports
+/nemesis report <slug>         # regenerate the AI-pipeline HTML (collapsible tree, brain-powered)
+
 # System
 /nemesis init                  # bootstrap brain (sources + experts + live L1)
 /nemesis doctor                # health check (deps, gh, MCPs, brain.db, sources)
 ```
+
+### Reports & artifacts
+
+Every feature run produces structured artifacts under `workspace/features/<slug>/`:
+
+| Artifact | Produced by | What it is |
+|----------|-------------|------------|
+| `overview.md` / `.html` | Ideation | As-Is → To-Be, edge cases, and an **Open Questions (Next Iteration)** ledger — every unresolved question with its working assumption and who can resolve it. Re-running Ideation flips answered ones to resolved. |
+| `solution.md` / `.html` | Solutioning | Solution design + risk register; consumes the open-questions ledger. |
+| `tech-spec.md` | Tech Spec | 15-section Razorpay tech spec. |
+| `test-report.md` | Implementation 6.5e | Each test → the requirement / RiskItem / issue it covers, what it asserts, why it exists. |
+| `change-report.md` | Implementation 6.5f | What changed and **why**, tests added & passing, **pending tests still to pass** before full ramp, review findings resolved, and the merge **verdict**. |
+| `pipeline-report.html` | Implementation 9b / `/nemesis report` | Single self-contained HTML of the **whole AI pipeline** as collapsible tree nodes — every doc, skill used + its input/output, each iteration input→output, the embedded test report, the archive of superseded artifacts, a Brain-powered knowledge node, and a redirect Drive URL for more details. |
 
 ### Sharing a feature with a teammate
 

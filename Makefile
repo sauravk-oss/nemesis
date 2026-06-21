@@ -34,9 +34,11 @@ test:  ## Compile-check Python + smoke-test the new scripts
 	@$(PYTHON) -m py_compile $$(find brain scripts -name '*.py' -not -path '*/_archive/*') && echo "    compile OK"
 	@echo "==> brain CLI loads"
 	@$(PYTHON) -m brain --help >/dev/null && echo "    brain --help OK"
-	@echo "==> feature_sync + test_report load"
+	@echo "==> report + sync scripts load"
 	@$(PYTHON) scripts/feature_sync.py --help >/dev/null && echo "    feature_sync --help OK"
 	@$(PYTHON) scripts/test_report.py --help >/dev/null && echo "    test_report --help OK"
+	@$(PYTHON) scripts/change_report.py --help >/dev/null && echo "    change_report --help OK"
+	@$(PYTHON) scripts/pipeline_report.py build --help >/dev/null && echo "    pipeline_report build --help OK"
 
 clean:  ## Remove __pycache__, *.pyc, and stray root SQLite files
 	@find . -type d -name __pycache__ -not -path './workspace/*' -exec rm -rf {} + 2>/dev/null || true
