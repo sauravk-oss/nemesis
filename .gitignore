@@ -21,9 +21,15 @@ package-lock.json
 # Environment / secrets
 .env
 .env.*
+!.env.example
 credentials.json
 *.pem
 *.key
+
+# Per-feature Drive sync manifests (runtime; rebuilt by feature_sync.py).
+# Already covered by workspace/ above, but made explicit since they hold Drive file ids.
+.drive.json
+workspace/features/*/.drive.json
 
 # IDE
 .vscode/

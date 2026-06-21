@@ -30,8 +30,22 @@ Commands:
     learn-status                   Learning pipeline state
     learn-flush [--dry-run]        Flush staged items to graph
 
+    ingest <source> [--feature F] [--project P] [--max-chars N]
+                                   Franco phase-1: ingest a local file directly;
+                                   remote/MCP sources print a needs_fetch plan
+    ingest-mcp <type> <id> --payload FILE [--feature F] [--project P]
+                                   Franco phase-2: ingest an LLM-fetched payload
+                                   (JSON file) → learn → flush (dedup on type+id)
+
     seed                           Seed all 45 projects + deps
     refresh                        Reload NetworkX from edges
+
+    register-sources               Register data sources from config/sources.json
+                                   (DataSource nodes + RELATES_TO edges; no MCP)
+    init-experts [--level N]       Seed ProjectExpert nodes for every project to
+                                   level N (default 1). Idempotent; never downgrades.
+    doctor                         Health check: deps, brain.db, sources, experts,
+                                   gh auth, skills, required MCPs (green/amber/red)
 
     migrate-rubick <path>          Migrate from rubick.db
 """
@@ -102,10 +116,20 @@ def main(argv: List[str] = None):
             _learn_status(brain)
         elif cmd == "learn-flush":
             _learn_flush(brain, rest)
+        elif cmd == "ingest":
+            _ingest(brain, rest)
+        elif cmd == "ingest-mcp":
+            _ingest_mcp(brain, rest)
         elif cmd == "seed":
             _seed(brain)
         elif cmd == "refresh":
             _refresh(brain)
+        elif cmd == "register-sources":
+            _register_sources(brain)
+        elif cmd == "init-experts":
+            _init_experts(brain, rest)
+        elif cmd == "doctor":
+            _doctor(brain)
         elif cmd == "migrate-rubick":
             _migrate(brain, rest)
         else:
@@ -360,6 +384,67 @@ def _learn_flush(brain: BrainAPI, args):
     print(json.dumps({"dry_run": dry, **result}, indent=2))
 
 
+def _ingest(brain: BrainAPI, args):
+    if not args:
+        print("Usage: python -m brain ingest <source> [--feature F] [--project P] [--max-chars N]")
+        return
+    source = args[0]
+    feature = _flag(args, "--feature")
+    project = _flag(args, "--project")
+    max_chars = int(_flag(args, "--max-chars", "8000"))
+
+    # Directory → bulk-ingest every text artifact recursively (the `docs` flow).
+    from pathlib import Path
+    p = Path(source)
+    if p.is_dir():
+        exts = {".md", ".txt", ".rst", ".html"}
+        files = sorted(f for f in p.rglob("*")
+                       if f.is_file() and f.suffix.lower() in exts)
+        summary = {"directory": str(p), "files": len(files),
+                   "ingested": 0, "unchanged": 0, "error": 0}
+        for f in files:
+            r = brain.ingest(str(f), feature=feature, project=project,
+                             max_chars=max_chars)
+            summary[r.get("status", "error")] = summary.get(r.get("status", "error"), 0) + 1
+        print(json.dumps(summary, indent=2, default=str))
+        return
+
+    result = brain.ingest(source, feature=feature, project=project,
+                          max_chars=max_chars)
+    print(json.dumps(result, indent=2, default=str))
+    if result.get("status") == "needs_fetch":
+        det = result.get("detection", {})
+        print(f"\n[needs_fetch] {result['source_type']}:{result['source_id']} is "
+              f"MCP/CLI-backed. The skill layer (Franco) must fetch it, then call:\n"
+              f"  python -m brain ingest-mcp {result['source_type']} "
+              f"'{result['source_id']}' --payload <file.json>"
+              + (f" --feature {feature}" if feature else "")
+              + (f" --project {project}" if project else ""))
+
+
+def _ingest_mcp(brain: BrainAPI, args):
+    if len(args) < 2:
+        print("Usage: python -m brain ingest-mcp <source_type> <source_id> "
+              "--payload FILE [--feature F] [--project P] [--max-chars N]")
+        return
+    source_type, source_id = args[0], args[1]
+    payload_file = _flag(args, "--payload")
+    if not payload_file:
+        print("Error: --payload <json-file> is required (the LLM-fetched response)")
+        return
+    from pathlib import Path
+    raw = Path(payload_file).read_text()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        payload = raw  # treat as plain text
+    result = brain.ingest_mcp_response(
+        source_type, source_id, payload,
+        feature=_flag(args, "--feature"), project=_flag(args, "--project"),
+        max_chars=int(_flag(args, "--max-chars", "4000")))
+    print(json.dumps(result, indent=2, default=str))
+
+
 def _seed(brain: BrainAPI):
     count = brain.seed_services()
     print(json.dumps({"services_seeded": count}))
@@ -369,6 +454,273 @@ def _refresh(brain: BrainAPI):
     t = brain.refresh_graph()
     print(json.dumps({"refreshed": True, "load_time_sec": round(t, 2),
                        "nodes": brain.nxc.node_count, "edges": brain.nxc.edge_count}))
+
+
+_EXPERT_LEVEL_NAMES = {1: "Apprentice", 2: "Journeyman", 3: "Adept",
+                       4: "Master", 5: "Grand Master"}
+
+
+def _register_sources(brain: BrainAPI):
+    """Register every entry in config/sources.json as a DataSource node.
+
+    Upserts one DataSource node per source (name = "<category>:<key>") plus a
+    RELATES_TO edge to each listed project Service node. Pure DB writes — no MCP
+    calls (the bounded live L1 ingest happens later, LLM-driven, via Franco).
+    Idempotent: re-running refreshes node data and re-asserts edges.
+    """
+    from brain.config import load_sources
+
+    sources = load_sources()
+    categories = ("slack", "drive", "github", "devrev")
+    ref_field = {"slack": "id", "drive": "id", "github": "repo", "devrev": "query"}
+
+    summary = {"nodes": 0, "edges": 0, "missing_id": 0, "by_category": {}}
+    for cat in categories:
+        entries = sources.get(cat) or []
+        summary["by_category"][cat] = 0
+        for e in entries:
+            key = e.get("key")
+            if not key:
+                continue
+            ref = e.get(ref_field[cat], "")
+            relates = e.get("relates_to") or []
+            nname = f"{cat}:{key}"
+            data = {
+                "category": cat, "key": key, "ref": ref,
+                "name": e.get("name", key), "ds_type": e.get("type", cat),
+                "role": e.get("role"), "relates_to": relates,
+                "ingest": e.get("ingest", {}),
+            }
+            brain.add_node("DataSource", nname, data=data, confidence=0.85)
+            summary["nodes"] += 1
+            summary["by_category"][cat] += 1
+            for slug in relates:
+                brain.add_edge("DataSource", nname, "Service", slug, "RELATES_TO")
+                summary["edges"] += 1
+            if not ref:
+                summary["missing_id"] += 1
+
+    print(json.dumps(summary, indent=2, default=str))
+    if summary["missing_id"]:
+        print(f"\nNote: {summary['missing_id']} source(s) have an empty id/ref in "
+              f"config/sources.json — registered, but not ingestable until you fill "
+              f"the channel ID (Decision #29: channel ID over name).")
+
+
+def _init_experts(brain: BrainAPI, args):
+    """Seed a ProjectExpert node for every SEED_PROJECT to the requested level.
+
+    Idempotent and non-destructive: an existing expert is left untouched when its
+    level is already >= the requested level (NEVER downgrades a leveled-up
+    expert). `brain init` seeds services + skills but NOT experts — this command
+    gives a fresh brain.db its expert baseline (run by /nemesis init at L1).
+    """
+    from brain.config import EXPERT_XP_THRESHOLDS, SEED_PROJECTS
+
+    level = int(_flag(args, "--level", "1"))
+    if level not in EXPERT_XP_THRESHOLDS:
+        print(f"Error: --level must be one of {sorted(EXPERT_XP_THRESHOLDS)}")
+        return
+    level_name = _EXPERT_LEVEL_NAMES[level]
+    xp = EXPERT_XP_THRESHOLDS[level]
+
+    summary = {"level": level, "level_name": level_name, "created": 0,
+               "leveled_up": 0, "skipped_higher": 0, "total": len(SEED_PROJECTS)}
+    for proj in SEED_PROJECTS:
+        slug = proj["slug"]
+        existing = brain.get_node("ProjectExpert", slug)
+        existing_data = (existing.get("data") or {}) if existing else {}
+        cur_level = existing_data.get("level", 0) or 0
+        if existing and cur_level >= level:
+            summary["skipped_higher"] += 1
+            continue
+        data = dict(existing_data)
+        data.update({"project": slug, "level": level, "level_name": level_name,
+                     "xp": max(xp, existing_data.get("xp", 0) or 0),
+                     "title": level_name})
+        data.setdefault("role", proj.get("role"))
+        data.setdefault("expertise", "")
+        data.setdefault("function_depth", 0)
+        data.setdefault("deep_read_at", None)
+        brain.add_node("ProjectExpert", slug, data=data, project=slug,
+                       confidence=0.8)
+        summary["leveled_up" if existing else "created"] += 1
+
+    print(json.dumps(summary, indent=2, default=str))
+    if summary["skipped_higher"]:
+        print(f"\n{summary['skipped_higher']} expert(s) already at level "
+              f">= {level} — left untouched (never downgraded).")
+
+
+def _doctor(brain: BrainAPI):
+    """Health check for a Nemesis brain install.
+
+    Prints a green/amber/red table across: Python deps, brain.db reachability +
+    stats, registered data sources (vs config/sources.json), ProjectExpert
+    coverage, gh auth, the skill registry, and required (OAuth) MCPs. MCPs are
+    validate-only — this never stores tokens or makes MCP calls.
+    """
+    import importlib
+    import subprocess
+
+    from brain.config import (REQUIRED_MCP, SEED_PROJECTS, SKILL_REGISTRY,
+                              load_sources)
+
+    checks = []  # (name, status, detail, hint); status in {OK, WARN, FAIL, INFO}
+
+    # 1. Python deps
+    missing = [m for m in ("networkx",) if not _importable(importlib, m)]
+    optional_missing = [m for m in ("lancedb", "sentence_transformers")
+                        if not _importable(importlib, m)]
+    if missing:
+        checks.append(("Python deps", "FAIL", f"missing: {', '.join(missing)}",
+                       "pip install -r requirements.txt"))
+    elif optional_missing:
+        checks.append(("Python deps", "WARN",
+                       f"core OK; optional missing: {', '.join(optional_missing)}",
+                       "vector search disabled until: pip install -r requirements.txt"))
+    else:
+        checks.append(("Python deps", "OK", "core + optional present", ""))
+
+    # 2. brain.db reachable + stats
+    nt = {}
+    try:
+        g = brain.stats()["graph"]
+        nodes, edges, svcs = g.get("nodes", 0), g.get("edges", 0), g.get("services", 0)
+        nt = g.get("node_types", {})
+        if edges > 0:
+            checks.append(("brain.db", "OK",
+                           f"{nodes:,} nodes / {edges:,} edges / {svcs} services", ""))
+        else:
+            checks.append(("brain.db", "WARN", "reachable but empty",
+                           "run: python -m brain init"))
+    except Exception as exc:
+        checks.append(("brain.db", "FAIL", f"unreachable: {exc}",
+                       f"check {brain._config.db_path}; run: python -m brain init"))
+
+    # 3. Data sources registered vs config
+    try:
+        src = load_sources()
+        configured = sum(len(src.get(c) or [])
+                         for c in ("slack", "drive", "github", "devrev"))
+        registered = nt.get("DataSource", 0)
+        if registered < configured:
+            checks.append(("Data sources", "WARN",
+                           f"{registered} registered / {configured} configured",
+                           "run: python -m brain register-sources"))
+        else:
+            checks.append(("Data sources", "OK",
+                           f"{registered} registered / {configured} configured", ""))
+    except Exception as exc:
+        checks.append(("Data sources", "WARN", f"config unreadable: {exc}",
+                       "check config/sources.json"))
+
+    # 4. ProjectExpert coverage
+    experts, seed_n = nt.get("ProjectExpert", 0), len(SEED_PROJECTS)
+    if experts < seed_n:
+        checks.append(("Experts", "WARN", f"{experts} / {seed_n} projects",
+                       "run: python -m brain init-experts --level 1"))
+    else:
+        checks.append(("Experts", "OK", f"{experts} / {seed_n} projects", ""))
+
+    # 5. gh auth (best-effort subprocess; never fails the doctor)
+    try:
+        r = subprocess.run(["gh", "auth", "status"], capture_output=True,
+                           text=True, timeout=10)
+        if r.returncode == 0:
+            checks.append(("GitHub CLI", "OK", "gh authenticated", ""))
+        else:
+            checks.append(("GitHub CLI", "WARN", "gh not authenticated",
+                           "run: gh auth login"))
+    except FileNotFoundError:
+        checks.append(("GitHub CLI", "WARN", "gh not installed",
+                       "install GitHub CLI: https://cli.github.com"))
+    except Exception as exc:
+        checks.append(("GitHub CLI", "WARN", f"probe failed: {exc}",
+                       "run: gh auth status"))
+
+    # 6. Skill registry
+    checks.append(("Skills", "OK", f"{len(SKILL_REGISTRY)} registered", ""))
+
+    # 7. Required MCPs (validate-only). Reading local Claude config JSON is NOT an
+    # MCP call — we only detect which OAuth connectors/servers are wired up.
+    present, missing = _probe_mcps()
+    total = len(REQUIRED_MCP)
+    if missing:
+        checks.append(("MCPs", "WARN",
+                       f"{present}/{total} connected; missing: {', '.join(missing)}",
+                       "connect missing OAuth MCPs inside Claude Code (tokens never stored here)"))
+    else:
+        checks.append(("MCPs", "OK",
+                       f"{present}/{total} connected (OAuth connectors)", ""))
+
+    # render
+    rank = {"FAIL": 0, "WARN": 1, "OK": 2, "INFO": 2}
+    worst = min((rank[c[1]] for c in checks), default=2)
+    verdict = {0: "RED", 1: "AMBER", 2: "GREEN"}[worst]
+    mark = {"OK": "[OK]  ", "WARN": "[WARN]", "FAIL": "[FAIL]", "INFO": "[INFO]"}
+
+    print(f"Nemesis Doctor — {verdict}")
+    print(f"  db: {brain._config.db_path}")
+    print("-" * 78)
+    print(f"  {'CHECK':<14} {'STATUS':<6} DETAIL")
+    print("-" * 78)
+    for name, status, detail, hint in checks:
+        print(f"  {name:<14} {mark[status]} {detail}")
+        if hint and status != "OK":
+            print(f"  {'':<14}        -> {hint}")
+    print("-" * 78)
+    print(f"  Verdict: {verdict}  "
+          f"({sum(1 for c in checks if c[1] == 'OK')} ok, "
+          f"{sum(1 for c in checks if c[1] == 'WARN')} warn, "
+          f"{sum(1 for c in checks if c[1] == 'FAIL')} fail, "
+          f"{sum(1 for c in checks if c[1] == 'INFO')} info)")
+
+
+def _importable(importlib, mod: str) -> bool:
+    try:
+        importlib.import_module(mod)
+        return True
+    except Exception:
+        return False
+
+
+def _probe_mcps():
+    """Detect which REQUIRED_MCP entries are wired up (local server or hosted connector).
+
+    Reads only local Claude config JSON — never makes an MCP call. Returns
+    (present_count, [missing_keys]). An MCP counts as present if its server name
+    or any alias matches a local mcpServers key OR a claude.ai connector name.
+    """
+    import json as _json
+    import os as _os
+    from brain.config import REQUIRED_MCP
+
+    pool = set()
+    for p in (_os.path.expanduser("~/.claude/settings.json"),
+              _os.path.join(_os.getcwd(), ".claude", "settings.json")):
+        try:
+            with open(p) as fh:
+                for k in (_json.load(fh).get("mcpServers") or {}):
+                    pool.add(k.lower())
+        except Exception:
+            continue
+    try:
+        with open(_os.path.expanduser("~/.claude.json")) as fh:
+            for name in (_json.load(fh).get("claudeAiMcpEverConnected") or []):
+                pool.add(str(name).lower())
+    except Exception:
+        pass
+
+    present, missing = 0, []
+    for mcp in REQUIRED_MCP:
+        tokens = [str(mcp["server"]), *[str(a) for a in mcp.get("aliases", [])]]
+        hit = any(any(t.lower() in c or c in t.lower() for c in pool) for t in tokens)
+        if hit:
+            present += 1
+        else:
+            missing.append(str(mcp["key"]))
+    return present, missing
 
 
 def _migrate(brain: BrainAPI, args):

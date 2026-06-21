@@ -1,485 +1,296 @@
-# Rubick — Memory Agent Skill
+# Nemesis v2 — Skill Orchestrator
 
 ## Role
-You are **Rubick**, the central memory and knowledge graph agent for Nemesis v2.
-You maintain a single cross-project SQLite knowledge graph (`workspace/rubick.db`) that serves
-as the ground truth for all other agents (Planner, Nemesis, Developer).
 
-**Only you call MCP tools.** Other agents query the graph — they never access Slack, Gmail,
-Drive, Calendar, or GitHub directly.
+This is the orchestrator surface for Nemesis v2. Nemesis is a multi-skill engineering
+system built on the **Living Index Brain** — a single cross-project knowledge graph stored
+in `workspace/brain.db`. The brain is the ground truth for every skill (Ideation,
+Solutioning, Tech Spec, Implementation, E2E, and the support skills).
+
+**Only the skill layer (the LLM) calls MCP tools.** The `brain/` package and every
+`scripts/*.py` are pure Python and never touch Slack, Gmail, Drive, Calendar, or GitHub
+directly. Data flows in through the **Franco two-phase pattern**: Python prepares the
+fetch parameters → the LLM makes the MCP/CLI call → Python ingests the returned payload.
 
 ## Architecture
 
 ```
-User / Other Agents
+User  ──►  /nemesis  (orchestrator — intent detection, phase routing)
+                │
+   ┌────────────┼─────────────────────────────────────────┐
+   ▼            ▼                                           ▼
+ Skills     BrainAPI (brain/api.py)                    MCP layer (LLM only)
+ (LLM)          │                                      Slack / Drive / Gmail /
+        ┌───────┼────────┐                             Calendar / GitHub / DevRev
+        ▼       ▼        ▼
+   GraphEngine  Context  MemoryEngine
+   SQLite +     Retriever  learning_ledger
+   NetworkX     (3-channel) sync_state
         │
         ▼
-   ┌──────────────┐
-   │  SKILL.md    │  ← You are here (orchestrator)
-   │  Rubick      │
-   │  Knowledge   │
-   └──────┬───────┘
-          │
-    ┌─────┴─────┐
-    ▼           ▼
-┌────────┐  ┌──────────┐
-│ Graph  │  │ Context  │
-│ Engine │  │ Engine   │
-│rubick_ │  │rubick_   │
-│graph.py│  │context.py│
-└────┬───┘  └──────────┘
-     │
-     ▼
-┌──────────┐
-│rubick.db │  ← Single cross-project SQLite + FTS5
-│  (WAL)   │    697K nodes, 713K edges, 45 projects
-└──────────┘
+   workspace/brain.db   ← single Living Index (SQLite + FTS5)
 ```
 
 ## Design Principle
+
 **Math is Code, Meaning is LLM.**
-- Deterministic layer (Python): scoring, DAG, CPM, BFS traversal, budget truncation
-- LLM layer (you): interpretation, summarization, urgency classification, entity extraction
+- Deterministic layer (Python / `brain/`): graph algorithms, scoring, BFS/PageRank, budget
+  truncation, dedup, persistence.
+- LLM layer (skills): interpretation, summarization, entity extraction, MCP calls.
 
-## Commands
+---
 
-### Lifecycle (the big three)
-```
-brain init                              # HEAVY: create DB + full bootstrap (30-60 min)
-brain refresh                           # FAST: incremental fetch since last sync (seconds to minutes)
-brain reset                             # DESTRUCTIVE: delete everything, return to stage zero
-```
+## Skill Surface
 
-### Graph Operations
-```
-brain stats                             # Node/edge counts
-brain health                            # Database health report
-brain search --text "emandate retry"    # Full-text search
-brain query --type Feature              # Query by node type
-brain impact --type Function --name X   # Impact analysis
-brain cross-refs --text "mandate"       # Cross-project references
-```
+All skills are Claude Code slash-commands defined in `commands/*.md`. Invoke another skill
+via the `Skill` tool; if it fails to resolve, follow that skill's documented protocol
+directly as a fallback.
 
-### Ingestion
-```
-brain ingest <url_or_id>                # Auto-detect source and ingest
-brain ingest-email <thread_id>          # Ingest Gmail thread
-brain ingest-slack <channel> <thread>   # Ingest Slack thread
-brain ingest-doc <doc_title>            # Ingest Google Drive doc
-brain ingest-meeting <event_id>         # Ingest calendar event
-brain ingest-commit <hash>              # Ingest git commit
-brain ingest-batch <items.json>         # Bulk ingest from JSON
-```
+| Skill | Purpose |
+|-------|---------|
+| `/nemesis` | **Orchestrator** — intent detection, phase routing, features dashboard, system commands |
+| `/brain` | Knowledge-graph operations (the engine behind everything) |
+| `/franco` | Universal data collector — any URL/ID/file → normalize → ingest |
+| `/implement` | Phase 4 — code generation + tests + quality gates + gated PR |
+| `/e2e` · `/devtest` | Phase 5 — end-to-end + interactive PR-driven debug testing |
+| `/pipeline` | Pipeline status and control |
+| `/review` | Code review and audit (5-skill + 8 Razorpay domain checks) |
+| `/plan` | Planner |
+| `/explain` | Payment-flow explainer |
+| `/doc` · `/silencer` | Tech-spec document generation (.docx local / Google Doc) |
+| `/diagram` · `/designer` | Architecture diagrams (Canva-first) / visual design |
+| `/standup` | Daily standup + reports |
+| `/tickets` | DevRev/Jira ticket management |
+| `/scenario` | Test scenario generation |
+| `/db-validator` | Payment-state + pre-deploy validation |
+| `/slash` | @Slash bot interaction (channel `C0B3U3Z2JG1`) |
 
-### GitHub (full org via `gh` CLI)
-```
-brain github-prs [--repo <slug>] [--state open|closed|all] [--limit 25]
-brain github-issues [--repo <slug>] [--state open|closed|all] [--limit 15]
-brain github-repos [--limit 1700]       # List all repos in razorpay org
-brain github-search <query>             # Search code/issues/PRs across org
-brain github-clone <slug>               # Clone repo to workspace/repos/<slug>
-brain github-pull <slug>                # git pull if already cloned
-brain github-fetch-all                  # Fetch PRs+issues from ALL active org repos
-```
+---
 
-### DevRev (ticket tracking — replaces Jira)
+## `/nemesis` Command Surface
+
+`/nemesis` is the single entry point. It parses free-form intent and routes to the right
+phase or answers directly from the brain.
+
+### System
+
 ```
-brain devrev-tasks [--assignee <email>] [--state open|closed]
-brain devrev-search <query>             # Search tasks across razorpay workspace
-brain ingest <devrev_url_or_id>         # Auto-detect ISS-*/TKT-* and ingest
+/nemesis init                  # full bootstrap: validate → seed → live L1 ingest → report
+/nemesis doctor                # health check (deps, gh, MCPs, brain.db, sources, experts)
 ```
 
-### Context Retrieval
+### Features
+
 ```
-brain context-for <target> [--budget N] [--consumer planner|arch|dev]
-brain recall <query> [--budget N]
-brain timeline <target> [--days 30]
-brain status [--project slug]
-brain decisions [--target X]
-brain people [--target X]
+/nemesis                       # features dashboard (no args)
+/nemesis new <name>            # create a feature → Ideation
+/nemesis new <name> <drive-link>   # PULL a shared feature from Drive + rebuild brain
+/nemesis <slug>                # resume a feature at its next phase
+/nemesis status <slug>         # detailed feature status
 ```
 
-### Feature Lifecycle
+### Phases (immutable order)
+
 ```
-brain feature-create --name "X" --owner saurav.k@razorpay.com
-brain feature-update --name "X" --status in_progress
-brain feature-list [--status in_progress]
-brain feature-link --feature "X" --node-type Task --node-name "Y" --edge-type IMPLEMENTS_FEATURE
-brain feature-health --name "X"
-brain feature-timeline --name "X"
+Phase -1  →  Phase 1   →  Phase 2        →  Phase 3   →  Phase 4         →  Phase 5
+Brain-First  Ideation     Solutioning       Tech Spec    Implementation     E2E
+(mandatory)  overview     solution + risk   docs         code + gated PR    testing
+
+/nemesis ideation <slug>
+/nemesis solutioning <slug>
+/nemesis techspec <slug>
+/implement <slug>
+/e2e <slug>
 ```
 
-### Planner
-```
-brain dag-build [--scope today|week|sprint]
-brain topo-sort [--scope today]
-brain critical-path [--scope today]
-brain priority-score [--scope today]
-brain plan --slots slots.json [--persist]
-brain capacity --slots slots.json
-```
+### Feature sharing (Google Drive)
 
-### Nemesis (orchestrator — intelligent routing to specialist agents)
 ```
-nemesis <natural language>                       # Intent detection → auto-route to correct phase/skill
-nemesis ideation <feature>                       # Phase 1: Feature overview (As-Is → To-Be, HTML+Mermaid)
-nemesis solutioning <feature>                    # Phase 2: Code-level solution design + risk analysis
-nemesis techspec <feature>                       # Phase 3: Tech spec document generation
-nemesis bootstrap [--project slug]               # Clone repos + AST extract + scan docs -> seed graph
-nemesis reverse <slug> [--scope module|full]      # Reverse-engineer via graph + skill delegation
-nemesis review <feature_or_pr>                   # code-review + api-review + graph validation
-nemesis status [--project slug]                  # Coverage dashboard with confidence metrics
-nemesis validate <node_name> [--correct|wrong]   # Human feedback -> confidence update (learning loop)
-nemesis impact <change>                          # Cross-project impact analysis with domain flow awareness
-nemesis learn                                    # Learning stats: confidence distribution, validation rate
-```
-
-### Maintenance
-```
-brain archive [--older-than 180d] [--dry-run]
-brain migrate [--to 3.0]
-brain sync-list [--project slug]
-brain orphans
-brain stale-signals [--days 7]
+/nemesis sync <slug>           # PUSH a feature's artifacts to Drive (idempotent)
+/nemesis pull <drive-link>     # PULL a feature from Drive + rebuild brain locally
 ```
 
 ---
 
-## Init Protocol (Full Bootstrap)
+## Brain CLI Surface
 
-`brain init` is the **one-time full bootstrap**. It creates the database, clones all repos,
-extracts code intelligence, builds the dependency graph, and ingests signals. Based on proven
-pipeline that produces 697K+ nodes across 45 projects.
+`python3 -m brain <command>` — run with no args for the full list. These are the **real**
+commands; nothing here calls an MCP.
 
-### Phase 1 — Database Setup (~1 min)
-1. Create `workspace/` directories (features/, repos/)
-2. Initialize `rubick.db` with schema v3.0 (nodes, edges, sync_state, learning_ledger, FTS5)
-3. Seed ALL 45 projects from `brain_config.SEED_PROJECTS` (primary + core + infra + domain + gateway + support + frontend + ecosystem)
-4. Seed 6 Slack channels from `SEED_CHANNELS`
-
-### Phase 2 — Clone All Repos (~5-10 min, parallel)
-5. For each project in SEED_PROJECTS where `role != "ecosystem"`:
-   ```bash
-   gh repo clone razorpay/<slug> workspace/repos/<slug>
-   ```
-6. Skip already-cloned repos (just `git pull`)
-7. **Parallelism**: Clone in batches of 5-10 simultaneously
-
-### Phase 3 — AST Extraction + Import (~10-20 min)
-8. For each cloned repo, run multi-language AST extraction:
-   ```bash
-   python3 scripts/ast_extractor.py workspace/repos/<slug> --json > /tmp/ast_<slug>.json
-   ```
-   - Go repos: functions, tests, classes, endpoints (chi/gin/spine/gRPC/net_http), datastores (SQL/GORM/Redis/sqlx), modules
-   - PHP repos (api): classes, functions, routes (Laravel Route::*), DB ops (Eloquent/raw), use statements
-   - TypeScript repos (dashboard, checkout): classes, functions, routes (Express/Next.js), imports
-   - Proto repos (rpc): messages (as classes), services, RPC methods (as endpoints grpc://Service/Method)
-9. Import each AST JSON:
-   ```bash
-   python3 scripts/rubick_graph.py import-ast workspace/rubick.db /tmp/ast_<slug>.json --project <slug>
-   ```
-10. **Expected**: ~512K functions, ~112K tests, ~36K classes, ~1.4K endpoints, ~2.6K datastores
-
-### Phase 4 — Cross-Project Linking (~2 min)
-11. Create DEPENDS_ON edges from `brain_config.SERVICE_DEPENDENCIES`:
-    ```bash
-    python3 scripts/rubick_graph.py add-edge workspace/rubick.db \
-        --from-type Project --from-name <from> \
-        --to-type Project --to-name <to> --edge-type DEPENDS_ON
-    ```
-12. For repos NOT in SERVICE_DEPENDENCIES, discover deps from go.mod:
-    ```bash
-    grep 'razorpay/' workspace/repos/<slug>/go.mod | awk -F/ '{print $NF}'
-    ```
-13. Detect shared DataStores (same table name across repos → RELATES_TO edges)
-14. **Expected**: ~117 DEPENDS_ON edges, 0 isolated code projects
-
-### Phase 5 — Architecture Knowledge Seeding (~2 min)
-15. Create ArchDecision nodes for each project with `confidence=0.7`:
-    - Service pattern (microservice, monolith, library, gateway, frontend)
-    - Language + framework
-    - Key stats (function count, endpoint count, datastore count)
-    - Role in the payment flow
-16. Create HAS_DECISION edges from Project → ArchDecision
-17. **Expected**: ~47 ArchDecision nodes, ~55 HAS_DECISION edges
-
-### Phase 6 — Signal Ingestion (background, ~10-20 min)
-18. **Slack** (6 months): For each seed channel, fetch messages via primary Slack MCP
-    - Create Signal nodes for notable messages (urgency > 0.3, decisions, action items)
-    - Create Person nodes for all message authors
-    - Link signals → channels → projects via edges
-19. **Gmail** (6 months): `search_threads newer_than:180d` for work-relevant threads
-    - Create Email nodes, extract entities, link to projects
-20. **Calendar** (6 months past + 1 month ahead): `list_events` for all meetings
-    - Create Meeting nodes, link via attendees
-21. **GitHub PRs**: Fetch open PRs from all seed repos
-    - Create PR + Branch nodes, OPENS_PR edges
-22. **Drive**: Search nemesis/ folder for existing documents
-    - Create Document nodes with `confidence=0.9`
-
-### Phase 7 — Verify + Finalize (~1 min)
-23. Run `python3 scripts/rubick_graph.py stats workspace/rubick.db` — verify counts
-24. Run health check: integrity, FTS5 sync, orphan detection
-25. Update all `sync_state` cursors to current timestamps
-26. Push initial state to Drive Notebook + Sync Log
-27. Report final stats: total nodes, edges, projects, grade distribution
-
-### Expected Output After Init
+### Lifecycle / bootstrap
 ```
-Graph:     ~700K nodes, ~714K edges
-Projects:  45 with code, 52+ total (including meta)
-Functions: ~512K across 45 repos (4 languages)
-Tests:     ~112K (avg 22% test ratio)
-Endpoints: ~1,415 (chi/gin/spine/gRPC/Laravel/Express)
-DataStores: ~2,601 (SQL/GORM/Redis/sqlx/Eloquent)
-Arch:      ~47 ArchDecision + ~5 BusinessLogic
-Deps:      ~117 DEPENDS_ON edges (0 isolated code projects)
-Signals:   ~134+ from Slack/Gmail/Calendar
-Grade:     avg 52.6/100 (3 A+, 2 A, 10 A-, 14 B+)
+brain init                     # dirs + schema + seed 45 services + 16-skill registry
+brain register-sources         # DataSource nodes + RELATES_TO edges from config/sources.json
+brain init-experts [--level N] # seed ProjectExpert nodes (default L1); idempotent
+brain doctor                   # green/amber/red health table
+brain seed                     # (re)seed the 45 projects + DEPENDS_ON edges
+brain refresh                  # reload the in-memory NetworkX graph from edges
 ```
 
-### Parallelism Strategy
-- Phase 2 (clone) runs in parallel batches of 5-10
-- Phase 3 (AST) can overlap with Phase 2 as repos finish cloning
-- Phase 6 (signals) runs as background after Phase 5 completes
-- Phases 4-5 (linking + arch seeding) are fast sequential operations
+### Query
+```
+brain stats                            # node/edge counts, projects, experts
+brain health <project>                 # A–F service health grade
+brain search <query> [--type T]        # FTS5 text search
+brain search-code <query> [-p P]       # search code bodies
+brain context <target> [-b N] [-c C]   # budgeted retrieval (consumer: planner|arch|dev)
+brain who-calls <fn> [-d N]            # callers (N hops)
+brain what-calls <fn> [-d N]           # callees (N hops)
+brain path <src> <dst>                 # shortest path between nodes
+brain impact <fn1,fn2> [-d N]          # blast-radius analysis
+brain dead-code <project>              # dead-code candidates
+brain test-gaps <project>              # untested high-PageRank functions
+```
+
+### Learning pipeline (Franco two-phase)
+```
+brain ingest <source> [--feature F] [--project P] [--max-chars N]
+      # phase 1: ingest a LOCAL file directly. Remote/MCP sources instead print a
+      #          needs_fetch plan for the LLM to act on.
+brain ingest-mcp <type> <id> --payload FILE [--feature F] [--project P]
+      # phase 2: ingest an LLM-fetched payload (JSON) → learn → flush. Dedup on (type,id).
+brain learn-status                     # staged-items state
+brain learn-flush [--dry-run]          # flush staged items → nodes + edges
+```
+
+### Graph CRUD
+```
+brain add-node <type> <name> [-d JSON] [-p P] [-c F]
+brain get-node <type> <name>
+brain delete-node <type> <name>
+brain add-edge <from_type> <from> <to_type> <to> <edge_type>
+```
+
+### Feature lifecycle
+```
+brain feature-create <name> [--owner O]
+brain feature-update <name> --status S
+brain feature-list [--status S]
+brain feature-health <name>
+```
+
+### Migration
+```
+brain migrate-rubick <path>            # one-time import from legacy rubick.db
+```
 
 ---
 
-## Refresh Protocol (fast incremental)
+## Bootstrap Protocol (`/nemesis init`)
 
-`brain refresh` fetches only **new data since the last sync**. Uses `sync_state` cursors
-to avoid re-fetching old data. Typically completes in seconds to a few minutes.
+The brain is bootstrapped in **two steps**, then enriched by a bounded live ingest. This is
+what `/nemesis init` orchestrates — there is no monolithic "clone-everything" init.
 
-### Steps
-1. Read `sync_state` table for last sync timestamps per source
-2. **Slack**: fetch messages newer than last cursor for each channel
-3. **Gmail**: `search_threads newer_than:Xd` where X = days since last sync
-4. **Calendar**: list events from last sync to +7 days ahead
-5. **GitHub**: fetch PRs updated since last sync for seed repos; search org for new activity
-6. **Drive**: check nemesis/ folder for new files
-7. Ingest all new data through the pipeline
-8. Update `sync_state` cursors
-9. Append summary to Drive Sync Log
+- **Phase A — Validate.** `./setup.sh --check` (read-only): Python deps, `gh auth`, and MCP
+  connectors. Never installs, never writes.
+- **Phase B — Seed (idempotent).**
+  1. `brain init` — workspace dirs + schema + 45 seed services (with `DEPENDS_ON` graph) +
+     the 16-skill registry. **Does not create experts.**
+  2. `brain register-sources` — a `DataSource` node per entry in `config/sources.json`
+     (Slack channels, Drive docs, repos, DevRev) + `RELATES_TO` edges to projects.
+  3. `brain init-experts --level 1` — a `ProjectExpert` node per project at L1. Never
+     downgrades an existing expert; merges on level-up.
+- **Phase C — Bounded live L1 ingest (LLM-driven, Franco two-phase).** For each source
+  flagged `l1: true`: Slack ~30 msgs / 7d, Drive top-5 docs (×8000 chars), GitHub
+  README + top-10 files via `gh`, DevRev ~5 items. Each source checkpointed via a sync
+  cursor (incremental on re-run). A disconnected MCP is skipped with a warning — init never
+  fails as a whole.
+- **Phase D — Report.** Sources registered, experts seeded, nodes ingested; persists an
+  `init:<timestamp>` Signal node.
 
-### What Refresh Does NOT Do
-- Does NOT re-fetch old messages already in the graph
-- Does NOT re-discover repos (use `brain github-repos` for that)
-- Does NOT delete or replace existing nodes
-- Does NOT re-run AST extraction (use `arch bootstrap --project <slug>` for that)
-
----
-
-## Reset Protocol (factory reset)
-
-`brain reset` is a **destructive factory reset** — returns the Brain to stage zero.
-
-### Steps
-1. **Confirm with user** — this is irreversible
-2. **Delete rubick.db** + WAL/SHM files
-3. **Delete workspace/features/** — all feature working directories
-4. **Delete workspace/repos/** — all cloned repositories
-5. **Delete logs** — clear ~/.nemesis_v2/logs/
-
-After reset, the workspace is empty. Run `brain init` to bootstrap from scratch.
-
-**`brain reset` + `brain init`** = complete fresh start (~30-60 min for full init).
+> Experts level up **L1 → L5** via XP earned from feature work (Decision #51) — they are
+> **not** eagerly deep-read to L2 at init time. `brain init` alone seeds services + skills,
+> not experts.
 
 ---
 
-## GitHub Protocol (full org — `gh` CLI)
+## Franco Ingestion (two-phase)
 
-The Brain uses `gh` CLI (already authenticated) to access the **entire razorpay GitHub org**
-(~1,500 repos), not just the 45 seed repos.
+No skill makes raw MCP fetch calls. They invoke `/franco <source>` (or the brain ingest
+commands), which detects the source type and routes:
 
-### Fetching PRs/Issues
-```bash
-# Fetch PRs from any repo in the org
-gh pr list --repo razorpay/<slug> --state all --limit 25 \
-  --json number,title,author,state,createdAt,updatedAt,headRefName \
-  --search "updated:>$(date -v-90d +%Y-%m-%d)"
+- **Local files & direct CLI sources** (local path, GitHub via `gh`, DevRev) — fetched in
+  phase 1 by `brain ingest`, normalized, and flushed.
+- **MCP-backed sources** (Slack, Gmail, Drive, Calendar) — phase 1 emits a `needs_fetch`
+  plan with the exact MCP tool + params; the **LLM** makes the call; phase 2
+  (`brain ingest-mcp <type> <id> --payload FILE`) ingests the returned payload, dedupes on
+  `(source_type, source_id)`, runs `learn()`, and flushes.
 
-# Fetch issues
-gh issue list --repo razorpay/<slug> --state all --limit 15 \
-  --json number,title,author,state,createdAt,updatedAt,labels
+---
 
-# List ALL repos in the org (~1500)
-gh repo list razorpay --limit 1700 --json name,updatedAt,primaryLanguage,isArchived
+## Feature Sync (push / pull)
 
-# Search across the entire org
-gh search prs "emandate retry" --owner razorpay --json repository,title,number,state,url
-gh search issues "offers timeout" --owner razorpay --json repository,title,number,state,url
-gh search code "func HandleRetry" --owner razorpay --json repository,path,textMatches
-```
+Feature artifacts are shared via Google Drive; **`brain.db` is never shipped**. Driven by
+`scripts/feature_sync.py` (pure Python — computes *what* to move; the LLM performs the Drive
+MCP I/O between phases).
 
-### Clone-on-Demand
-When deeper code analysis is needed (AST extraction, architecture review, grep):
-1. Clone to `workspace/repos/<slug>`: `gh repo clone razorpay/<slug> workspace/repos/<slug>`
-2. Run `ast_extractor.py` on the cloned repo for code intelligence nodes
-3. Import results via `rubick_graph.import_ast()`
-4. Pull updates with `git -C workspace/repos/<slug> pull`
+- **PUSH** (`/nemesis sync <slug>`, and after each phase's `learn-flush`):
+  `feature_sync.py status` diffs local files vs the per-feature manifest
+  (`workspace/features/<slug>/.drive.json`, gitignored) → `push-plan` lists changed
+  `.md`/`.html`/`.json` files (skip >2 MB, skip `*-logs/`) → LLM uploads to
+  `nemesis/features/<slug>/` (the `implementation/` subdir flattened to `implementation__`)
+  → `record-push` writes back `{file_id, sha256, size, mtime, pushed_at}`. Unchanged files
+  are never re-uploaded.
+- **PULL** (`/nemesis new <slug> <drive-link>` or `/nemesis pull <drive-link>`):
+  `pull-plan --link <link>` parses the folder id → LLM `search_files` + `download_file_content`
+  → `record-pull` writes files to `workspace/features/<slug>/` (un-flattening
+  `implementation__`) → **brain rebuild**: `feature-create` → Franco ingest each artifact →
+  `learn-flush`. `feature-health <slug>` should then be populated.
 
-Repos are cloned lazily — only when a command needs local file access.
-
-### Ingesting GitHub Data
-After fetching, create PR/Branch/Commit nodes + OPENS_PR/BRANCH_OF edges per repo.
-For cross-repo features (e.g., PlanId spans offers-engine + rpc + api), create RELATES_TO
-edges between the related PRs.
-
-## DevRev Protocol (ticket tracking — replaces Jira)
-
-DevRev is at `https://app.devrev.ai/razorpay/tasks`. Access via browser MCP tools.
-
-### Source Detection
-The ingestion pipeline recognizes DevRev URLs and IDs:
-- `https://app.devrev.ai/razorpay/works/ISS-1910733` → source_type: `devrev_task`
-- `ISS-1910733` or `TKT-4562044` → source_type: `devrev_id`
-
-### Ingesting DevRev Data
-Create a `JiraIssue` node (reused type) with:
-- `source_type: "devrev"`
-- `source_id: "ISS-XXXXXX"` or `"TKT-XXXXXX"`
-- `devrev_url: "https://app.devrev.ai/razorpay/works/ISS-XXXXXX"`
-- Link to project via TRACKS edge
-
-## Ingestion Pipeline
-
-When the user says `brain ingest <url>`:
-
-1. **Detect** source type via regex patterns in `brain_config.SOURCE_PATTERNS`
-2. **Fetch** raw content via appropriate tool:
-   - Slack: `slack_read_thread` / `slack_read_channel` (MCP)
-   - Gmail: `search_threads` + `get_thread` (MCP)
-   - Drive: `read_file_content` (MCP)
-   - Calendar: `list_events` + `get_event` (MCP)
-   - GitHub: `gh pr view` / `gh issue view` / `gh api` (CLI)
-   - DevRev: browser MCP or `WebFetch` (auth required)
-   - Web: `WebFetch`
-3. **Extract** entities (2-pass):
-   - Pass 1 (structural): `rubick_ingest.extract_entities_structural()` — regex for emails, Jira IDs, GitHub refs, action items, decisions
-   - Pass 2 (LLM): you classify urgency, generate content_summary, extract semantic entities
-4. **Upsert** Signal node + entity nodes + edges via `rubick_graph.upsert_node/edge`
-5. **Update** sync state via `rubick_graph.sync_update`
-6. **Report** what was ingested: node count, edge count, urgency, entities found
+---
 
 ## Context Budget Protocol
 
-When another agent requests context:
-1. Call `rubick_context.context_for(target, budget=N, consumer="planner|arch|dev")`
-2. Engine does BFS from seed node, scoring neighbors by edge relevance + recency + urgency
-3. Nodes serialized to text, truncated at budget
-4. Return the `body` field — this is what the requesting agent sees
+When a skill needs context, it calls `brain context <target> -b <N> -c <consumer>` (or
+`BrainAPI.context_for(...)`). The retriever runs a 3-channel hybrid — NetworkX graph walk +
+FTS5 keyword match + (optional, lazy) LanceDB vectors — scores neighbors by edge relevance,
+recency, and confidence, serializes to text, and truncates at the token budget.
 
-Budget defaults per consumer:
-| Consumer | Tokens |
-|----------|--------|
-| planner  | 1500   |
-| arch     | 4000   |
-| dev      | 3000   |
-| user     | 2000   |
+Consumer profiles weight the three channels differently (`brain.config.HYBRID_WEIGHTS`):
 
-## Sync Protocol
+| Consumer | Leans toward |
+|----------|--------------|
+| `planner` | graph (structure / dependencies) |
+| `arch` | vector (semantic similarity) |
+| `dev` | FTS5 (exact code/keyword) |
+| `user` | vector (semantic) |
 
-For hourly background sync:
-1. Check `sync_state` table for last sync per source
-2. Only fetch new signals since `last_sync_at`
-3. Respect rate limits: `SYNC_INTERVAL_QUICK_MIN=60`, `SYNC_INTERVAL_FULL_MIN=360`
-4. Max `MAX_NEW_TASKS_PER_SYNC=3` new tasks created per sync cycle
-5. Update `sync_state.last_sync_at` and `cursor` after each source
+If vectors are unavailable, retrieval degrades gracefully to graph + FTS5.
 
-## Nemesis Protocol (orchestrator with self-learning)
+---
 
-**Nemesis** is the intelligent orchestrator that routes to specialist agents and skills:
-- `engineering:architecture`, `engineering:tech-debt` for reverse engineering
-- `engineering:code-review`, `engineering:testing-strategy` for reviews
-- `compass:razorpay-api-review` for Razorpay API validation
-- `engineering:system-design`, `engineering:deploy-checklist` for impl docs
-- Blade MCP tools for UI component patterns
-- `engineering:incident-response` for risk pattern matching
+## Learning Loop (self-improving confidence)
 
-### Execution cycle (every command):
-1. **Read** from rubick.db: `context_for(consumer="arch", budget=4000)`, query relevant nodes
-2. **Delegate** to specialist skills via Skill tool (each command has a defined pipeline)
-3. **Synthesize** LLM merges skill outputs + graph data + Razorpay domain knowledge
-4. **Write back** to rubick.db: upsert nodes with confidence scoring (0.7 extracted, 0.85 reviewed, 1.0 confirmed)
-5. **Link**: create edges (HAS_REQUIREMENT, HAS_RISK, HAS_USE_CASE, DECIDED_BY, REFERENCES, EXTRACTED_FROM)
-6. **Present**: render results as interactive markdown with skill attribution tags
+- Nodes are created at `confidence=0.7` (LLM-extracted).
+- Multi-source confirmation / review validation bumps to `0.85`.
+- Explicit user confirmation (or a materialized predicted risk) → `1.0`.
+- Contradicted knowledge is penalized (expert XP −200, correction recorded).
+- `context_for()` prefers high-confidence nodes; low-confidence nodes surface for review.
 
-### Self-Learning Loop
-- Nodes are created with `confidence=0.7` (LLM-extracted)
-- When a review validates a requirement via PR: confidence bumps to 0.85
-- When user explicitly confirms via `/nemesis validate --correct`: confidence -> 1.0
-- When a predicted risk materializes (matching incident signal): confidence -> 1.0
-- `context_for()` prefers high-confidence nodes in BFS traversal
-- Low-confidence nodes (<0.5) are flagged in `status` dashboard for review
+Every skill interaction stages knowledge via `brain.learn()` and persists with
+`brain.flush()` / `brain learn-flush` — as nodes + typed edges (`HAS_REQUIREMENT`,
+`HAS_RISK`, `HAS_USE_CASE`, `IMPLEMENTS_FEATURE`, `DECIDED_BY`, `SIGNAL_FOR`, …). Dedup on
+`(type, name)` + FTS.
 
-### Cross-Project Intelligence
-- Shared DataStore detection: if two repos access the same table, create RELATES_TO edges
-- Shared API contracts: if repo A calls repo B's endpoints, link caller Function -> callee Endpoint
-- Impact propagation: `/nemesis impact` traces changes across RELATES_TO edges to other repos
-- Domain flow awareness: maps features to Razorpay payment flows (mandate lifecycle, offer evaluation, etc.)
-
-### Razorpay Domain Risk Patterns (auto-checked on `/nemesis risk`)
-Idempotency, reconciliation drift, amount precision (paise), callback ordering,
-PCI scope, rate limiting, timeout cascades, feature flag availability.
-
-### Bootstrap Protocol (cold-start)
-1. Clone seed repos -> AST extract -> import to graph
-2. Create DEPENDS_ON edges from `brain_config.SERVICE_DEPENDENCIES`
-3. Create ArchDecision nodes for each service
-4. Detect shared resources across repos
-5. Scan Drive docs -> create Document nodes
-6. Report coverage stats
-
-### Node Types Nemesis Writes
-| Type | Retention | Confidence | Key Fields |
-|------|-----------|------------|------------|
-| Document | 90 days | 0.9 (exists) | title, source_url, source_type, owner |
-| Requirement | NEVER | 0.7 (extracted) | title, type, priority, status, extraction_method |
-| RiskItem | NEVER | 0.7-0.85 | title, severity, likelihood, identified_by |
-| ArchDecision | NEVER | 0.7 (discovered) | title, context, decision, rationale |
-| UseCase | NEVER | 0.7 (extracted) | title, actor, preconditions, steps |
-| BusinessLogic | NEVER | 0.7 (encoded) | title, description, rules, owner |
-
-## Cross-Project Intelligence
-
-When asked about cross-project impacts:
-1. Call `rubick_graph.find_cross_refs(text, exclude_project=current)`
-2. FTS5 searches across all project nodes in the unified graph
-3. Create `CROSS_REF` edges with similarity scores for reuse
-4. Present matches grouped by project
+---
 
 ## Drive Storage
 
-All persistent files live in the **nemesis** Drive folder:
-- **Folder**: `1u1vLNkGY9CM8G8eBDe0DtEAjcT3mjBa5`
-- **Rubick Notebook** (`1HDFURcA3TsW64Xt-rALjERFfcCmBNPMnBGNgPwfxWCo`): Human-readable backup of graph state — pinned facts, active projects, context snapshots, decisions log, weekly archive
-- **Rubick Sync Log** (`1kHCSs21KeDE_qIIliLuMZubz9QoaXf097tqW918yrfQ`): Append-only log of all sync operations
+The **nemesis** Drive folder (`1u1vLNkGY9CM8G8eBDe0DtEAjcT3mjBa5`) holds backups and shared
+feature artifacts. Rule: **`brain.db` is truth; Drive is backup.** New files always use
+`DRIVE_STORAGE_FOLDER_ID` as the parent. Feature artifacts live under
+`nemesis/features/<slug>/` (see Feature Sync above).
 
-### Drive Sync Protocol
-1. **rubick.db is truth** — Drive docs are human-readable backups, not the source of truth
-2. After each sync cycle, append a summary to the Sync Log
-3. On major state changes (feature shipped, new project, decision made), update the Notebook
-4. Any new ingested documents are stored in the nemesis folder
-5. Use `brain_config.DRIVE_STORAGE_FOLDER_ID` as `parentId` for all Drive creates
+---
 
-### Drive Commands
-```
-brain drive-sync              # Push current graph state to Drive Notebook
-brain drive-log <message>     # Append entry to Sync Log
-brain drive-store <content>   # Store a new file in the nemesis folder
-```
+## Boundaries
 
-## Graph Maintenance
-
-Run automatically or on request:
-- **Archive**: Strip bulky fields (raw_metadata, diff, body) from old nodes per retention policy
-- **Orphans**: Find disconnected nodes not linked to any project or feature
-- **Stale Signals**: Flag unprocessed signals older than 7 days
-- **Health**: Check integrity, schema version, size, archive status
-
-## What You Do NOT Do
-- You do NOT write code or implement features (that's the Developer agent)
-- You do NOT make architectural decisions (Nemesis does that via `/nemesis`)
-- You do NOT schedule tasks or generate plans (that's the Planner agent)
-- You only store, retrieve, and maintain the knowledge graph
+- **No MCP from Python.** `brain/` and `scripts/*.py` never call MCPs. (Reading local Claude
+  config JSON to *detect* connected MCPs is not an MCP call — that's allowed.)
+- **`brain.db` is never shipped between machines** — rebuilt locally from pulled artifacts.
+- **OAuth MCPs cannot be auto-connected by a script.** `setup.sh` validates and guides only;
+  tokens are managed by Claude Code, never stored in the repo.
+- **Never edit files without explicit user permission.** Exception: `brain.db` operations
+  (reads/writes/upserts/flush) are always free.
+- **Implementation safety:** never push to main/master, never force-push, never commit
+  secrets; always use feature branches; the user must approve generated code before commit.

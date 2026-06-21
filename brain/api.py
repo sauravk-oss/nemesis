@@ -13,11 +13,13 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from brain.config import BrainConfig, SEED_PROJECTS, SERVICE_DEPS
+from brain.config import (BrainConfig, SEED_PROJECTS, SERVICE_DEPS,
+                          SOURCE_NODE_TYPE, detect_source as _cfg_detect_source)
 from brain.graph.engine import GraphEngine
 from brain.graph.networkx_cache import NetworkXCache
 from brain.graph.algorithms import (dead_code_candidates, impact_analysis,
@@ -190,6 +192,97 @@ class BrainAPI:
             for dep in deps:
                 self._engine.add_edge("Service", src, "Service", dep, "DEPENDS_ON")
         return count
+
+    # ------------------------------------------------------------------
+    # Franco — universal data collector (ingest)
+    # ------------------------------------------------------------------
+    def detect_source(self, source: str) -> Dict[str, str]:
+        """Classify a URL / id / file path into {source_type, source_id, ...}.
+
+        Pure — no MCP or network I/O. Delegates to brain.config.detect_source.
+        """
+        return _cfg_detect_source(source)
+
+    def ingest(self, source: str, feature: str = None, project: str = None,
+               max_chars: int = 8000) -> Dict[str, Any]:
+        """Phase-1 of Franco. Ingest a source the brain can read on its own.
+
+        The brain package never calls an MCP. Local files (on disk) are read and
+        ingested directly. Every other source type is remote/MCP-backed, so this
+        returns ``{"status": "needs_fetch", ...}`` — the skill layer (LLM) fetches
+        the payload, then hands it back via :meth:`ingest_mcp_response`.
+        """
+        det = self.detect_source(source)
+        stype, sid = det["source_type"], det["source_id"]
+
+        if stype == "local_file":
+            path = det.get("path") or source
+            try:
+                text = Path(path).read_text(errors="replace")
+            except Exception as exc:  # unreadable file — surface, do not crash
+                return {"status": "error", "source_type": stype,
+                        "source_id": sid, "error": f"read failed: {exc}"}
+            payload = {"title": Path(path).name, "content": text, "path": path}
+            return self.ingest_mcp_response(stype, sid, payload, feature=feature,
+                                            project=project, max_chars=max_chars)
+
+        return {"status": "needs_fetch", "source_type": stype, "source_id": sid,
+                "detection": det, "feature": feature, "project": project,
+                "node_type": SOURCE_NODE_TYPE.get(stype, "Signal")}
+
+    def ingest_mcp_response(self, source_type: str, source_id: str, payload: Any,
+                            feature: str = None, project: str = None,
+                            max_chars: int = 4000) -> Dict[str, Any]:
+        """Phase-2 of Franco: normalize an already-fetched payload → learn → flush.
+
+        ``payload`` is whatever the LLM got back from an MCP (or CLI) call — a
+        dict or a string. Dedups on ``(source_type, source_id)`` via the sync
+        cursor: re-ingesting unchanged content is a no-op. When ``feature`` is
+        given, the node gets a ``MENTIONED_IN`` edge to that Feature.
+        """
+        import hashlib
+
+        if isinstance(payload, dict):
+            title = (payload.get("title") or payload.get("subject")
+                     or payload.get("name") or source_id)
+            content = (payload.get("content") or payload.get("text")
+                       or payload.get("body") or "")
+            if not content:
+                content = json.dumps(payload, default=str)
+        else:
+            title, content = source_id, str(payload)
+        content = content[:max_chars]
+
+        digest = hashlib.sha256(
+            content.encode("utf-8", "replace")).hexdigest()[:16]
+        if self.get_sync_cursor(source_type, source_id) == digest:
+            return {"status": "unchanged", "source_type": source_type,
+                    "source_id": source_id, "node": None}
+
+        ntype = SOURCE_NODE_TYPE.get(source_type, "Signal")
+        nname = f"{source_type}:{source_id}"
+        ndata: Dict[str, Any] = {
+            "title": title, "summary": content,
+            "source_type": source_type, "source_id": source_id,
+            "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        if project:
+            ndata["project"] = project
+
+        edges = []
+        if feature:
+            edges.append({"to_type": "Feature", "to_name": feature,
+                          "edge_type": "MENTIONED_IN"})
+
+        item = LearningItem(node_type=ntype, node_name=nname, node_data=ndata,
+                            confidence=0.7, edges=edges, project=project or "")
+        iid = self.learn(skill="franco", items=[item], interaction_type="ingest")
+        flush_result = self.flush(interaction_id=iid)
+        self.update_sync_cursor(source_type, source_id, digest, project)
+
+        return {"status": "ingested", "source_type": source_type,
+                "source_id": source_id, "node_type": ntype, "node": nname,
+                "feature": feature, "flush": flush_result}
 
     # ------------------------------------------------------------------
     # Sync
