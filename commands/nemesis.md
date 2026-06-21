@@ -147,7 +147,7 @@ Also scan `workspace/features/` for directories to catch any features not yet in
     /nemesis status <slug>             Detailed feature status
     /nemesis sync <slug>               Push feature artifacts to Drive
     /nemesis pull <drive-link>         Pull a shared feature + rebuild brain
-    /nemesis report <slug>             Regenerate AI-pipeline HTML (collapsible tree)
+    /nemesis report <slug>             Regenerate AI-pipeline HTML (Argo-style DAG + sidebar)
     /nemesis init                      Bootstrap brain (sources + L1 ingest)
     /nemesis doctor                    Health check (deps, MCPs, brain, sources)
     Just describe what you need — Nemesis will figure out the rest.
@@ -410,16 +410,25 @@ the learning pipeline over them.
 ### System Command: `/nemesis report <slug>` — regenerate the AI-pipeline HTML report
 
 Renders (or re-renders) `workspace/features/<slug>/pipeline-report.html`: a single
-self-contained HTML showing the **complete AI pipeline** as collapsible tree nodes —
-every phase, the documents it produced, the skills used + their input/output, each
-iteration's input→output, the embedded test-added report, the archive of superseded
-artifacts, and a Brain-powered knowledge node (live node/edge counts + feature health),
-with a redirect Drive URL for "more details". `/implement` Step 9b runs this
-automatically at the end of Implementation; this command lets you regenerate it at any
-phase (e.g. right after Tech Spec) or refresh it after edits.
+self-contained HTML that visualizes the **complete AI pipeline as an Argo-Workflows-style
+interactive DAG** (light theme). A top-down spine of status-colored circular nodes (green
+✓ = succeeded, blue ▶ = running, grey = pending, dashed = deferred) fans right into
+per-phase children — one node per document, skill (colored by which fallback tier
+answered), iteration, and the phase's open-questions. A root ★ node and a Brain ◆ node
+(live node/edge counts + feature health) anchor the graph, with an optional archive node
+for superseded artifacts. **Clicking any node opens a right sidebar** with SUMMARY and
+DETAILS tabs — for a phase: status badge + skill/iteration/doc counts; for a skill:
+tier + input→output; for a document: the full artifact rendered inline (`.md` as HTML,
+`.html` via `<iframe srcdoc>`); for open-questions: the Q&A list. A sub-toolbar provides
+zoom (−/+/fit), live search (dims non-matching nodes), and kind filters (All / Phases /
+Skills / Iterations / Docs / Questions). The header carries a status pill, the DevRev
+chip, and a Drive button linking to the shared feature folder. `/implement` Step 9b runs
+this automatically at the end of Implementation; this command lets you regenerate it at
+any phase (e.g. right after Tech Spec) or refresh it after edits.
 
 `scripts/pipeline_report.py` is pure Python and NEVER calls an MCP — it reads the local
-feature folder + brain.db only.
+feature folder + brain.db only. The HTML is fully self-contained (embedded CSS+JS, no
+network for structure), so it opens offline and survives Drive upload intact.
 
 1. (Optional) Assemble a **pipeline manifest** narrating skills/iterations per phase —
    the semantic layer auto-discovery can't infer (see schema in `/implement` Step 9b).
@@ -1900,7 +1909,7 @@ While Nemesis is designed for natural language, power users can use direct comma
 | `new <name> [drive-link]` | Create a feature; with a Drive link → pull + rebuild |
 | `sync <slug>` | Push feature artifacts to Drive (feature_sync push) |
 | `pull <drive-link>` | Pull a shared feature + rebuild brain (never ships brain.db) |
-| `report <slug>` | Regenerate AI-pipeline HTML report (collapsible tree, brain-powered) |
+| `report <slug>` | Regenerate AI-pipeline HTML report (Argo-style interactive DAG + sidebar, brain-powered) |
 | `init` | Bootstrap brain: validate env → seed sources/experts → bounded L1 ingest |
 | `doctor` | Health check (deps, brain.db, sources, experts, gh, skills, MCPs) |
 

@@ -754,7 +754,7 @@ covers.
 - DevRev ticket: <TICKET-ID> (link)
 - Change report: `workspace/features/<slug>/change-report.md` (what changed + why, tests added/pending, verdict)
 - Test report: `workspace/features/<slug>/test-report.md` (per-test → feature mapping)
-- Pipeline report (AI usage, collapsible tree): `workspace/features/<slug>/pipeline-report.html` + Drive link
+- Pipeline report (AI usage, Argo-style interactive DAG + sidebar): `workspace/features/<slug>/pipeline-report.html` + Drive link
 - Tech Spec: `workspace/features/<slug>/tech-spec.md`
 - Solution: `workspace/features/<slug>/solution.md`
 - Overview: `workspace/features/<slug>/overview.md`
@@ -838,18 +838,26 @@ python -m brain add-edge Signal "implementation:<feature_name>" Feature "<featur
 python -m brain learn-flush
 ```
 
-### Step 9b — Generate the pipeline report (AI-usage HTML, collapsible tree)
+### Step 9b — Generate the pipeline report (AI-usage HTML, Argo-style interactive DAG)
 
 After `learn-flush` (so Brain has the complete feature state), render the **final
-pipeline report** — a single self-contained HTML that shows the *entire AI pipeline*:
-every phase, the documents it produced, the skills it used and their output, each
-iteration's input→output, the embedded test-added report, and an archive of superseded
-artifacts — all as collapsible tree nodes, powered by Brain (it queries brain.db for
-the live feature health + node counts), with a redirect Drive URL for more details.
+pipeline report** — a single self-contained HTML that visualizes the *entire AI pipeline*
+as an **Argo-Workflows-style interactive DAG** (light theme). A top-down spine of
+status-colored circular nodes (green ✓ = succeeded, blue ▶ = running, grey = pending,
+dashed = deferred) fans right into per-phase children: one node per document, skill
+(colored by which fallback tier answered — skill / brain / @Slash), iteration, and the
+phase's open-questions. A root ★ node + a Brain ◆ node (live feature health + node/edge
+counts) anchor the graph, with an optional archive node for superseded artifacts.
+**Clicking any node opens a right sidebar** with SUMMARY and DETAILS tabs — phase nodes
+show a status badge + counts; skill nodes show tier + input→output; document nodes render
+the artifact inline; the open-questions node lists the Q&A. A sub-toolbar gives zoom,
+live search, and kind filters; the header carries a status pill, the DevRev chip, and a
+Drive button. Powered by Brain (it queries brain.db for live feature health + node counts).
 
 `scripts/pipeline_report.py` is pure Python — it NEVER calls an MCP. It auto-discovers
 the feature's docs + archive and embeds them (Markdown rendered inline; `.html` docs via
-sandboxed `<iframe srcdoc>`). The LLM optionally assembles a **pipeline manifest** that
+sandboxed `<iframe srcdoc>`) and skips any prior `pipeline-report*.html` so the report
+never embeds a copy of itself. The LLM optionally assembles a **pipeline manifest** that
 narrates the skill usage / iterations per phase (the semantic layer a parser can't infer):
 
 ```json
