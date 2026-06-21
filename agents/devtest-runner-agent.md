@@ -42,8 +42,14 @@ The scenario is modeled on the real Razorpay **ITF** primitives in
    ```json
    {"runner_status": "error", "error": "scenario_file or params_file not found", "steps_run": 0}
    ```
+<<<<<<< HEAD
 2. Confirm `base_urls` for the service(s) under test are present in params. If a devstack base
    URL is missing → return error (do not guess a URL).
+=======
+2. Confirm `base_url` (shared ingress `https://api-web.ext.dev.razorpay.in`) and
+   `devstack_routing_header` (`rzpctx-dev-serve-user: <label>`) are present in params (RULE 14).
+   If either is missing → return error (do not guess a URL or invent a per-service subdomain).
+>>>>>>> 365d991 (end-to-end agent)
 3. Ensure `curls_dir` exists (create it).
 4. Print the plan: the ordered step list, marking each `s2s` or `UI`, and how many curls will
    need confirmation. No fallback URL invention. Fail loud on missing inputs.
@@ -57,8 +63,15 @@ Walk the scenario in order. For EACH step:
 ### If the step is `s2s`
 
 1. **Build the request** from the ITF primitive + params: method, full URL
+<<<<<<< HEAD
    (`base_url + path`), headers (incl. the auth header for the `AuthType`), and the JSON body
    with `params.json` values substituted.
+=======
+   (`base_url + path` — always the shared ingress, never a per-service subdomain), headers
+   (the auth header for the `AuthType` **plus** the `devstack_routing_header`
+   `rzpctx-dev-serve-user: <label>` so the call lands on your dev pods — RULE 14), and the JSON
+   body with `params.json` values substituted.
+>>>>>>> 365d991 (end-to-end agent)
 
 2. **Redact for display + save (RULE 12).** Produce a redacted copy where every `pii_fields`
    key and any auth token/secret is replaced with `"<redacted:<key>>"`. The **executed**
@@ -68,10 +81,18 @@ Walk the scenario in order. For EACH step:
 3. **STOP for confirmation (RULE 2).** Show the redacted curl and ask:
    ```
    ▶ Step <NN> — <name>   [s2s]
+<<<<<<< HEAD
      curl -X POST 'https://payments-upi-saurav-dev.ext.dev.razorpay.in/v1/intents' \
        -H 'Authorization: <redacted:auth>' -H 'Content-Type: application/json' \
        -d '{ "amount": 100000, "bank_account": { "bankCode": "<redacted:bankCode>", ... } }'
      (2 PII fields populated at runtime, redacted above)
+=======
+     curl -X POST 'https://api-web.ext.dev.razorpay.in/v1/intents' \
+       -H 'rzpctx-dev-serve-user: saurav-dev' \
+       -H 'Authorization: <redacted:auth>' -H 'Content-Type: application/json' \
+       -d '{ "amount": 100000, "bank_account": { "bankCode": "<redacted:bankCode>", ... } }'
+     (shared ingress + routing header — RULE 14; 2 PII fields populated at runtime, redacted above)
+>>>>>>> 365d991 (end-to-end agent)
    ❓ Execute this curl?  [Yes / Edit / Skip step / Abort scenario]
    ```
    - **Yes** → execute. **Edit** → apply the human's change, re-show, re-confirm.
@@ -177,8 +198,13 @@ editing `params.json`. Example `07-create-intent.request.json` (PII redacted):
   "name": "create-intent",
   "itf_ref": "tests/paymentsupi/intents/actions/api.go:34 CreateIntent (callservice.CallService)",
   "method": "POST",
+<<<<<<< HEAD
   "url": "https://payments-upi-saurav-dev.ext.dev.razorpay.in/v1/intents",
   "headers": { "Authorization": "<redacted:auth>", "Content-Type": "application/json" },
+=======
+  "url": "https://api-web.ext.dev.razorpay.in/v1/intents",
+  "headers": { "rzpctx-dev-serve-user": "saurav-dev", "Authorization": "<redacted:auth>", "Content-Type": "application/json" },
+>>>>>>> 365d991 (end-to-end agent)
   "body": { "amount": 100000, "currency": "INR", "upi": { "provider": "okhdfcbank" },
             "bank_account": { "bankCode": "<redacted:bankCode>", "lastFourDigits": "<redacted:lastFourDigits>" } },
   "params_used": ["merchant.id", "terminal.id", "payment.amount", "payment.psp"]
