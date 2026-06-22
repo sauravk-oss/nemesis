@@ -258,10 +258,10 @@ Extract per PR: `headRefOid` (40-char SHA → helmfile image value), `headRefNam
 ### Step 0.3 — Brain pre-load
 
 ```bash
-python -m brain context "<feature_name>" -c arch -b 3000
-python -m brain search "<feature_name>" --type RiskItem
-python -m brain search "<feature_name>" --type Signal
-python -m brain search "devtest:<service>" --type Signal     # prior devtest runs
+python3 -m brain context "<feature_name>" -c arch -b 3000
+python3 -m brain search "<feature_name>" --type RiskItem
+python3 -m brain search "<feature_name>" --type Signal
+python3 -m brain search "devtest:<service>" --type Signal     # prior devtest runs
 ```
 
 Also read the feature's own artifacts if present: `workspace/features/<slug>/solution.md`,
@@ -833,7 +833,7 @@ debug lines before any commit.
 Cross-reference the runner's saved responses with the observer logs and Brain:
 ```bash
 >>>>>>> Stashed changes
-python -m brain context "<feature>" -c dev -b 5000
+python3 -m brain context "<feature>" -c dev -b 5000
 >>>>>>> 365d991 (end-to-end agent)
 
 Alternative for service-side breakpoints: `make test-debug` (delve :2345), or
@@ -845,9 +845,9 @@ debug lines before any commit.
 
 Cross-reference the runner's saved responses with the observer logs and Brain:
 ```bash
-python -m brain context "<feature>" -c dev -b 5000
-python -m brain search "<ALERT_CODE>" --type Function
-python -m brain search "<ALERT_CODE>" --type RiskItem
+python3 -m brain context "<feature>" -c dev -b 5000
+python3 -m brain search "<ALERT_CODE>" --type Function
+python3 -m brain search "<ALERT_CODE>" --type RiskItem
 grep -i "<keyword>" workspace/features/<slug>/devtest/logs/*.log | tail -30
 ```
 Match each saved `response.json` to what the logs show. For fire-and-forget features, confirm
@@ -895,8 +895,8 @@ inline CSS, no localhost server).
 ### Step 5.2 — Persist to Brain
 
 ```bash
-python -m brain add-node Signal "devtest:<feature>:<date>" -d '{"prs":["<pr>"],"service":"<svc>","steps_run":<n>,"steps_confirmed":<n>,"alerts":<n>,"confirms":<n>,"curls_dir":"workspace/features/<slug>/devtest/curls/","source_skill":"devtest","project":"<svc>"}'
-python -m brain learn-flush
+python3 -m brain add-node Signal "devtest:<feature>:<date>" -d '{"prs":["<pr>"],"service":"<svc>","steps_run":<n>,"steps_confirmed":<n>,"alerts":<n>,"confirms":<n>,"curls_dir":"workspace/features/<slug>/devtest/curls/","source_skill":"devtest","project":"<svc>"}'
+python3 -m brain learn-flush
 ```
 
 ### Step 5.3 — Interactive Debug Shell (PERSISTENT — stay until "done"/"exit")
@@ -970,8 +970,8 @@ Use the answer to narrow both the log search and Brain query.
 Debug answer format: `📋 Logs show … 🧠 Brain says … 💡 Root cause … 🔧 Next step … ❓ Want me to …?`
 Persist each finding:
 ```bash
-python -m brain add-node Signal "devtest:debug:<feature>:<date>" -d '{"question":"<q>","root_cause":"<hyp>","trace_code":"<code>","file":"<file>","source_skill":"devtest","project":"<svc>"}'
-python -m brain learn-flush
+python3 -m brain add-node Signal "devtest:debug:<feature>:<date>" -d '{"question":"<q>","root_cause":"<hyp>","trace_code":"<code>","file":"<file>","source_skill":"devtest","project":"<svc>"}'
+python3 -m brain learn-flush
 ```
 
 ---
@@ -1021,9 +1021,9 @@ Re-run a failed scenario with enhanced debug logging via `devspace dev`:
 
 Before building the chain, suggest scenarios from prior knowledge:
 ```bash
-python -m brain search "devtest:<service>" --type Signal     # prior runs
-python -m brain search "<feature>" --type RiskItem           # high-RPN risks → test cases
-python -m brain search "e2e:<service>" --type TestResult     # E2E failure patterns
+python3 -m brain search "devtest:<service>" --type Signal     # prior runs
+python3 -m brain search "<feature>" --type RiskItem           # high-RPN risks → test cases
+python3 -m brain search "e2e:<service>" --type TestResult     # E2E failure patterns
 ```
 Present them (e.g. "[RPN 320] race on concurrent debits", "[gap] Splitz-off skip path
 untested"), then ASK "Add any scenarios, or proceed?"
@@ -1035,9 +1035,9 @@ untested"), then ASK "Add any scenarios, or proceed?"
 After a run, map exercised code paths (trace codes → functions) and report gaps:
 ```bash
 grep -h "TRACE\|FUNC\|HANDLER" workspace/features/<slug>/devtest/logs/*.log | sort -u | head -50
-python -m brain search "<service>" --type Function
-python -m brain add-node Signal "devtest:coverage:<slug>:<date>" -d '{"services":{"<svc>":{"total":N,"covered":M,"gaps":[...]}}}'
-python -m brain learn-flush
+python3 -m brain search "<service>" --type Function
+python3 -m brain add-node Signal "devtest:coverage:<slug>:<date>" -d '{"services":{"<svc>":{"total":N,"covered":M,"gaps":[...]}}}'
+python3 -m brain learn-flush
 ```
 
 ---
@@ -1051,13 +1051,13 @@ Use Brain graph to find related test scenarios from past devtest sessions:
 
 ```bash
 # Find prior devtest sessions for the same services
-python -m brain search "devtest:<service>" --type Signal
+python3 -m brain search "devtest:<service>" --type Signal
 
 # Find related RiskItems that have test scenarios
-python -m brain search "<feature>" --type RiskItem
+python3 -m brain search "<feature>" --type RiskItem
 
 # Find test patterns from E2E results
-python -m brain search "e2e:<service>" --type TestResult
+python3 -m brain search "e2e:<service>" --type TestResult
 ```
 
 ### Scenario Suggestion
@@ -1131,7 +1131,7 @@ grep -h "TRACE\|FUNC\|HANDLER" workspace/features/<slug>/kubectl-logs/*.log | \
     sort -u | head -50
 
 # Cross-reference with Brain function list for the service
-python -m brain search "<service>" --type Function
+python3 -m brain search "<service>" --type Function
 ```
 
 ### Coverage Gap Report
@@ -1157,7 +1157,7 @@ Service: offers-engine
 ### Persist Coverage to Brain
 
 ```bash
-python -m brain add-node Signal "devtest:coverage:<slug>:<date>" \
+python3 -m brain add-node Signal "devtest:coverage:<slug>:<date>" \
     -d '{"services":{"emandate-service":{"total":12,"covered":8,"gaps":["validateMandateAmount","handleBankCallback"]},"offers-engine":{"total":6,"covered":6,"gaps":[]}}}'
 ```
 

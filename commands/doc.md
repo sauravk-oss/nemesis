@@ -20,7 +20,7 @@ Parse the input after `/doc`:
 |---|---|---|
 | `create <title> [--author A] [--team T] [--bu B]` | New skeleton doc | rubick_doc.py create |
 | `from-arch <feature>` | Generate from /nemesis analysis | Brain + Graph → rubick_doc.py |
-| `from-brain <query>` | Generate from Brain context | `python -m brain context` → rubick_doc.py |
+| `from-brain <query>` | Generate from Brain context | `python3 -m brain context` → rubick_doc.py |
 | `section <N> <content_or_instruction>` | Add/replace content in section N | rubick_doc.py add-section |
 | `sub-section <N.M> <content>` | Add content to sub-section | rubick_doc.py add-section |
 | `code <N> --lang L <code_or_file>` | Add styled code block | rubick_doc.py add-code |
@@ -461,14 +461,14 @@ open "<path>"
 
 1. **Gather context from Brain**:
 ```
-python -m brain context "<feature>" -c arch -b 6000
+python3 -m brain context "<feature>" -c arch -b 6000
 ```
 
 2. **Query for requirements, risks, decisions**:
 ```
-python -m brain search "<feature>" --type Requirement
-python -m brain search "<feature>" --type RiskItem
-python -m brain search "<feature>" --type ArchDecision
+python3 -m brain search "<feature>" --type Requirement
+python3 -m brain search "<feature>" --type RiskItem
+python3 -m brain search "<feature>" --type ArchDecision
 ```
 
 3. **Create skeleton**:
@@ -514,7 +514,7 @@ Developed from learnings during the DFB Instant Discount solution doc creation.
 ### Steps
 
 1. **Gather context**:
-   - Brain: `python -m brain context "<feature>" -c arch -b 6000`
+   - Brain: `python3 -m brain context "<feature>" -c arch -b 6000`
    - @Slash cache: `brain.api` slash recall for `<feature>`
    - If `--feature` provided: also query Requirements, RiskItems, ArchDecisions from graph
 
@@ -560,7 +560,7 @@ Similar to `from-arch` but starts with a free-form query:
 
 1. **Run context retrieval**:
 ```
-python -m brain context "<query>" -c arch -b 6000
+python3 -m brain context "<query>" -c arch -b 6000
 ```
 
 2. **Identify relevant nodes** from context:
@@ -685,8 +685,8 @@ Alternative document creation using Word MCP instead of python-docx.
 After generating a document, persist knowledge to Brain:
 
 ```
-python -m brain add-node Document "<title>" -d '{"path": "<path>", "sections_filled": N, "generated_from": "arch|brain|manual", "source_skill": "doc", "project": "<project_slug>"}'
-python -m brain learn-flush
+python3 -m brain add-node Document "<title>" -d '{"path": "<path>", "sections_filled": N, "generated_from": "arch|brain|manual", "source_skill": "doc", "project": "<project_slug>"}'
+python3 -m brain learn-flush
 ```
 
 ## Styling Reference
@@ -735,5 +735,5 @@ tech spec documents. It reads from Brain for context but never writes to externa
 **Interacts with**:
 - `/nemesis` — receives architecture context for from-arch generation
 - `/explain` — can invoke `/doc` to produce .docx from explanations
-- Brain (`python -m brain context`, `python -m brain search`) — reads context and node data
-- Learning pipeline (`python -m brain learn-flush`) — records document creation events
+- Brain (`python3 -m brain context`, `python3 -m brain search`) — reads context and node data
+- Learning pipeline (`python3 -m brain learn-flush`) — records document creation events

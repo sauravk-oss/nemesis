@@ -40,7 +40,7 @@ merged-ready PR with a green Argo run, plus two reports written back to the feat
   replace it.
 - **`/devtest`** — when a failure is a *SUT bug* (not a test bug), you hand it to `/devtest` for a
   live hot-fix, then come back and retrigger.
-- **Brain** — `python -m brain` for prior knowledge + persistence (always free, no permission).
+- **Brain** — `python3 -m brain` for prior knowledge + persistence (always free, no permission).
 
 **"Done" means:** a feature-branch PR is open on `razorpay/end-to-end-tests` with a compiling,
 lint-clean ITF suite; the Argo run has been triggered and observed; the touched packages hit the
@@ -144,8 +144,8 @@ workspace/features/<slug>/                     ← the nemesis feature workspace
    `test-report.md`. Identify the **SUT** + the **commit SHA(s)** under test (RULE 15).
 2. **Brain-first** (RULE 14):
    ```bash
-   python -m brain context "<feature> e2e test <SUT>" -c dev -b 3000
-   python -m brain search "<SUT>" --type TestResult
+   python3 -m brain context "<feature> e2e test <SUT>" -c dev -b 3000
+   python3 -m brain search "<SUT>" --type TestResult
    ```
 3. Read the implementation guidelines that govern the test:
    - SUT repo: `<SUT>/.agents/rules/*` (Go patterns, error handling, unit-test rules).
@@ -277,9 +277,9 @@ On any failure:
      Coralogix, with PII redacted (RULE 11).
 3. Persist to Brain (RULE 14):
    ```bash
-   python -m brain add-node Signal "e2e:<slug>:<date>" -d '{"phase":"e2e","status":"<…>","argo":"<link>"}'
-   python -m brain add-node TestResult "e2e:<slug>:<SUT>" -d '{"feature_slug":"<slug>","service":"<SUT>","passed":N,"failed":N,"skipped":N,"status":"<…>"}'
-   python -m brain learn-flush
+   python3 -m brain add-node Signal "e2e:<slug>:<date>" -d '{"phase":"e2e","status":"<…>","argo":"<link>"}'
+   python3 -m brain add-node TestResult "e2e:<slug>:<SUT>" -d '{"feature_slug":"<slug>","service":"<SUT>","passed":N,"failed":N,"skipped":N,"status":"<…>"}'
+   python3 -m brain learn-flush
    ```
 
 ---

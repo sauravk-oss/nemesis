@@ -131,7 +131,7 @@ teammate rebuilds it locally from the pulled artifacts:
 - **FTS5** full-text search across 700K+ code entities
 - **LanceDB** vector search (lazy-loaded, optional)
 
-### Skills (20 commands)
+### Skills (19 commands)
 
 | Skill | Purpose |
 |-------|---------|
@@ -155,9 +155,9 @@ teammate rebuilds it locally from the pulled artifacts:
 | `/slash` | @Slash bot interaction |
 | `/db-validator` | Payment state validator |
 
-### Agents (12 sub-agents)
+### Agents (15 sub-agents)
 
-Parallel sub-agents for heavy-lift work: code review, implementation, test generation, data ingestion, standup collection, etc.
+Parallel sub-agents for heavy-lift work: code review, implementation, test generation, data ingestion, standup collection, E2E authoring/argo, project experts, etc.
 
 ## Brain CLI
 
@@ -204,15 +204,15 @@ python3 -m brain migrate-rubick workspace/rubick.db
 nemesis/
 ├── brain/                  # Living Index Brain package
 │   ├── api.py              # BrainAPI — single entry point
-│   ├── cli.py              # CLI: python -m brain <command>
+│   ├── cli.py              # CLI: python3 -m brain <command>
 │   ├── config.py           # 45 projects, service deps, weights
 │   ├── types.py            # 33 node types, 32 edge types
 │   ├── graph/              # SQLite + NetworkX + algorithms
 │   ├── context/            # 3-channel hybrid retrieval
 │   ├── memory/             # Learning pipeline + sync
 │   └── migration/          # rubick.db → brain.db migration
-├── commands/               # 20 skill definitions (markdown)
-├── agents/                 # 12 sub-agent templates
+├── commands/               # 19 skill definitions (markdown)
+├── agents/                 # 15 sub-agent templates
 ├── config/                 # Expert configs
 ├── schemas/                # Graph schema docs
 ├── scripts/                # Legacy scripts + archive

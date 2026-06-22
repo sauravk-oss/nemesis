@@ -192,14 +192,14 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
   if "$PY" -m brain stats >/dev/null 2>&1; then
     ok "brain.db reachable"
   else
-    warn "brain.db not initialized — run ./setup.sh (without --check) or: python -m brain init"
+    warn "brain.db not initialized — run ./setup.sh (without --check) or: python3 -m brain init"
   fi
 else
   if [ "$FAIL" -eq 0 ]; then
-    info "Running: python -m brain init ..."
+    info "Running: python3 -m brain init ..."
     if "$PY" -m brain init; then
       ok "brain initialized"
-      info "next: python -m brain register-sources && python -m brain init-experts --level 1"
+      info "next: python3 -m brain register-sources && python3 -m brain init-experts --level 1"
       info "  (or just run  /nemesis init  inside Claude Code for the full bootstrap)"
     else
       fail "brain init failed — see output above"

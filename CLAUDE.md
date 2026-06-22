@@ -45,7 +45,7 @@ workspace/brain.db   ← Single Living Index (~500-700 MB)
 /plan  /nemesis   /review   /explain   /standup   /franco   ...
 ```
 
-**Only Brain calls MCPs** for data ingestion. Other skills query via `from brain.api import BrainAPI` or `python -m brain`.
+**Only Brain calls MCPs** for data ingestion. Other skills query via `from brain.api import BrainAPI` or `python3 -m brain`.
 
 ## Directory Structure
 ```
@@ -54,7 +54,7 @@ nemesis_v2/
 ├── SKILL.md                    # Skill orchestrator
 ├── brain/                      # Living Index Brain package
 │   ├── __init__.py             # Package init (v2.0.0)
-│   ├── __main__.py             # `python -m brain <command>` entry point
+│   ├── __main__.py             # `python3 -m brain <command>` entry point
 │   ├── api.py                  # BrainAPI — single entry point for all operations
 │   ├── cli.py                  # CLI: stats, search, context, impact, health, CRUD, learn, etc.
 │   ├── config.py               # Central config (45 projects, service deps, budgets, weights)
@@ -136,7 +136,7 @@ Experts:   46 at Level 2 — enriched with endpoints, handlers, tables, test cov
 Languages: Go (40 repos), PHP (1: api), TypeScript (2: dashboard, checkout), Proto (1: rpc)
 DB Size:   ~500-700 MB (brain.db, single file)
 RAM:       ~150 MB startup (SQLite + NetworkX), ~800 MB peak (with LanceDB loaded)
-CLI:       `python -m brain <command>` — all operations
+CLI:       `python3 -m brain <command>` — all operations
 API:       `from brain.api import BrainAPI` — programmatic access from all skills
 ```
 
@@ -151,7 +151,7 @@ All persistent files live in the **nemesis** Google Drive folder:
 1. **Single brain.db** — one Living Index across all projects. SQLite typed code tables (9) + generic workflow nodes + edges + FTS5. Replaces rubick.db.
 2. **Math is Code, Meaning is LLM** — Python (`brain/`) handles graph algorithms, scoring, BFS, budget truncation. LLM handles interpretation, entity extraction, summarization.
 3. **Context budget engine** — `brain.context_for(target, budget=N)` returns relevance-scored text within token limit. 3-channel hybrid: graph walk + FTS5 + vector search.
-4. **Only Brain calls MCPs** — Other skills query the graph via `from brain.api import BrainAPI` or `python -m brain`, never touching Slack/Gmail/Drive directly. **Exceptions**: `/slash` skill calls Slack MCP directly (dedicated @Slash interaction channel `claude.saurav`); `/doc` skill uses python-docx locally (no MCP needed for core function)
+4. **Only Brain calls MCPs** — Other skills query the graph via `from brain.api import BrainAPI` or `python3 -m brain`, never touching Slack/Gmail/Drive directly. **Exceptions**: `/slash` skill calls Slack MCP directly (dedicated @Slash interaction channel `claude.saurav`); `/doc` skill uses python-docx locally (no MCP needed for core function)
 5. **Provenance on every node** — source_type, source_id, ingested_at, confidence
 6. **sync_state table** — incremental sync with cursors per source per project
 7. **Cross-project via FTS5** — `nodes_fts` + `code_fts` detect references across projects
@@ -162,7 +162,7 @@ All persistent files live in the **nemesis** Google Drive folder:
 12. **brain refresh** — non-destructive re-seed (keeps permanent nodes, refreshes ephemeral data)
 13. **brain reset** — factory reset to stage zero (destructive, requires confirmation)
 14. **Nemesis is the orchestrator** — `/nemesis` is an intelligent natural-language orchestrator that routes to Ideation (overview), Solutioning (solution + risk), Tech Spec (docs), and Brain (knowledge). 3-phase feature lifecycle: Ideation (overview) → Solutioning (solution + risk analysis) → Tech Spec (docs). Delegates to specialists, synthesizes outputs, writes structured knowledge back to brain.db.
-15. **Code extraction via Graphify** — `graphify` (36 tree-sitter languages) replaces custom AST parsers. Two-pass call graph (EXTRACTED + INFERRED), Leiden clustering. `python -m brain ingest-code` imports to typed tables.
+15. **Code extraction via Graphify** — `graphify` (36 tree-sitter languages) replaces custom AST parsers. Two-pass call graph (EXTRACTED + INFERRED), Leiden clustering. `python3 -m brain ingest-code` imports to typed tables.
 16. **Self-learning via confidence** — Arch nodes created at confidence 0.7 (LLM-extracted), bump to 0.85 (review-validated), 1.0 (user-confirmed). context_for() prefers high-confidence nodes. `/nemesis validate` and `/nemesis learn` manage the feedback loop.
 17. **Cross-project intelligence** — Shared DataStore/API detection, RELATES_TO edges across repos, impact propagation, Razorpay domain flow mapping (mandate lifecycle, offer evaluation, settlement, recurring payments).
 18. **@Slash bot integration** — Brain `slash_store()`/`slash_recall()` manages interactions with @Slash (Razorpay knowledge bot, user `U0AK4Q67HEY`) via Slack channel `C0B3U3Z2JG1`. Queries cached in `slash_interactions` table + persisted as Signal nodes. Confidence 0.85 (higher than LLM, lower than user-confirmed).
@@ -229,13 +229,13 @@ Brain-First  Ideation       Solutioning          Tech Spec      Implementation
 ```
 
 ### Enforcement Rules
-1. **Phase -1 is mandatory** — always query `brain.db` via `python -m brain context` before ANY live codebase analysis or @Slash query. If >= 3 high-confidence nodes exist, Brain is the primary context source.
+1. **Phase -1 is mandatory** — always query `brain.db` via `python3 -m brain context` before ANY live codebase analysis or @Slash query. If >= 3 high-confidence nodes exist, Brain is the primary context source.
 2. **Sequential phases** — if the user requests a later phase without completing the prior one, check for the prerequisite artifact first:
    - Solutioning requires `workspace/features/<slug>/overview.md` or `overview.html` to exist
    - Tech Spec requires `workspace/features/<slug>/solution.html` or `solution.md` to exist
    - Implementation requires `workspace/features/<slug>/solution.md` or `solution.html` to exist
    - If the artifact is missing, surface it clearly and offer to run the prerequisite phase first.
-3. **No uncommitted phases** — every completed phase MUST flush its outputs to `brain.db` via `python -m brain learn-flush` before moving to the next phase. Persisting is not optional.
+3. **No uncommitted phases** — every completed phase MUST flush its outputs to `brain.db` via `python3 -m brain learn-flush` before moving to the next phase. Persisting is not optional.
 4. **Redirect general questions** — if the user asks a general coding or architecture question while `/nemesis` is active, identify which Nemesis phase handles it and route there. Do not answer directly outside the pipeline.
 5. **Phase HUD in responses** — every Nemesis response must include a one-line phase status indicator showing which phase is active and which phases are complete.
 6. **NEVER edit files without permission** — Nemesis NEVER writes, edits, or modifies any file without explicit user confirmation first. Always present the proposed change and ask "Should I apply this?" before touching any file. This applies to: command files, agent files, CLAUDE.md, workspace markdown artifacts (overview.md, solution.md, etc.), scripts, and any source code. **Exception: brain.db is always free** — all brain.db operations (reads, writes, node/edge upserts, learning pipeline flushes) never require permission and run automatically as part of any phase.

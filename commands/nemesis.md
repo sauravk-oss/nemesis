@@ -189,9 +189,9 @@ Trigger patterns:
 Action: Query Brain, answer directly. No phase activation needed.
 
 ```bash
-python -m brain context "<extracted_topic>" -c arch -b 4000
-python -m brain search "<extracted_topic>"
-python -m brain search "" --type Project
+python3 -m brain context "<extracted_topic>" -c arch -b 4000
+python3 -m brain search "<extracted_topic>"
+python3 -m brain search "" --type Project
 ```
 
 If Brain has sufficient context (>= 3 relevant nodes), synthesize and answer.
@@ -306,9 +306,9 @@ warnings) is fine to proceed.
 
 **Phase B — Brain + sources + experts (pure DB writes, no MCP).**
 ```bash
-python -m brain init                       # dirs + schema + seed services + skill registry
-python -m brain register-sources           # upsert a node per source in config/sources.json + RELATES_TO edges
-python -m brain init-experts --level 1      # seed ProjectExpert nodes for all SEED_PROJECTS to L1
+python3 -m brain init                       # dirs + schema + seed services + skill registry
+python3 -m brain register-sources           # upsert a node per source in config/sources.json + RELATES_TO edges
+python3 -m brain init-experts --level 1      # seed ProjectExpert nodes for all SEED_PROJECTS to L1
 ```
 (Correctness note: `brain init` seeds services + the skill registry but does **not**
 seed experts — experts come from `init-experts --level 1`. Do not assume `init`
@@ -318,14 +318,14 @@ created experts.)
 For each source in `config/sources.json` where `ingest.l1 == true`, ingest a small,
 capped slice. This is the only phase that touches MCPs, and it follows Franco's
 two-phase pattern: Python builds nothing here — the LLM makes the MCP/CLI call,
-hands the raw response to `python -m brain ingest-mcp <type> <id> --payload <file>`
+hands the raw response to `python3 -m brain ingest-mcp <type> <id> --payload <file>`
 for normalization + learn + flush.
 
 | Source type | L1 bound | Fetch path |
 |-------------|----------|------------|
 | slack    | 30 messages, last 7 days       | LLM: `slack_get_channel_messages` → `ingest-mcp slack <channel_id> --payload f.json` |
 | drive    | top 5 docs; 1× 8000 chars each | LLM: `search_files` + `read_file_content` → `ingest-mcp drive <doc_id> --payload f.json` |
-| github   | README + top 10 files          | `gh` CLI directly → `python -m brain ingest <local_path> --project <repo>` |
+| github   | README + top 10 files          | `gh` CLI directly → `python3 -m brain ingest <local_path> --project <repo>` |
 | devrev   | 5 items                        | LLM: DevRev fetch → `ingest-mcp devrev <query> --payload f.json` |
 
 After each source's slice ingests, checkpoint so re-runs are incremental:
@@ -342,22 +342,22 @@ resumes from the cursor.
 Print: sources registered (by type), experts seeded (count @ L1), nodes ingested per
 source (and which were skipped). Persist a checkpoint Signal:
 ```bash
-python -m brain learn Signal "init:$(date +%Y%m%dT%H%M%S)" \
+python3 -m brain learn Signal "init:$(date +%Y%m%dT%H%M%S)" \
     -d '{"phase":"init","sources":<n>,"experts":<n>,"ingested":<n>,"skipped":[...]}' || true
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ### System Command: `/nemesis doctor` — health check
 
 ```bash
-python -m brain doctor
+python3 -m brain doctor
 ```
 Renders a green/amber/red table: Python deps (core vs optional), brain.db reachability
 + stats, data sources (registered vs `config/sources.json` count), experts (count +
 levels), GitHub CLI auth, skill registry (16), and MCP connectivity (`N/5` connected —
 detected from local Claude config, validate-only). For deeper environment checks
 (pip, gh login guidance) also offer `./setup.sh --check`. Each non-green row prints a
-remediation hint (e.g. "run: python -m brain register-sources"). Persist a Signal with
+remediation hint (e.g. "run: python3 -m brain register-sources"). Persist a Signal with
 the verdict.
 
 ### System Command: `/nemesis sync <slug>` — push feature artifacts to Drive
@@ -397,14 +397,14 @@ the learning pipeline over them.
    updates `.drive.json` `last_pull`.
 4. **Brain rebuild** (never ship brain.db):
    ```bash
-   python -m brain feature-create "<name>"
+   python3 -m brain feature-create "<name>"
    # for each pulled artifact (overview.md, solution.md, tech-spec.md, test-report.md, ...):
-   python -m brain ingest <workspace/features/<slug>/<artifact>> --feature <slug>
-   python -m brain learn-flush
+   python3 -m brain ingest <workspace/features/<slug>/<artifact>> --feature <slug>
+   python3 -m brain learn-flush
    ```
    (Use `/franco <path>` per artifact if you want source-typed normalization; both route
    through the same learn → flush pipeline.)
-5. Verify: `python -m brain feature-health <slug>` is populated, then resume the feature
+5. Verify: `python3 -m brain feature-health <slug>` is populated, then resume the feature
    at whatever phase its artifacts indicate (phase detection from Step 3 of the Dashboard).
 
 ### System Command: `/nemesis report <slug>` — regenerate the AI-pipeline HTML report
@@ -472,7 +472,7 @@ Brain-First   Ideation       Solutioning          Tech Spec      Implementation
    - If the artifact is missing, surface it clearly and offer to run the prerequisite phase.
 
 3. **No uncommitted phases** — every completed phase MUST flush its outputs to `workspace/brain.db`
-   via `python -m brain learn-flush` before moving to the next phase. Persisting is not optional.
+   via `python3 -m brain learn-flush` before moving to the next phase. Persisting is not optional.
 
 4. **Redirect general questions** — if the user asks a general coding or architecture
    question while a feature is active, identify which phase handles it and route there.
@@ -517,10 +517,10 @@ At each mandatory pause point:
 3. Wait for user response before continuing
 4. Store Q&A as a Signal node:
 ```bash
-python -m brain add-node Signal "dialogue:<phase>:<step>:<feature>" \
+python3 -m brain add-node Signal "dialogue:<phase>:<step>:<feature>" \
     -d '{"question":"<the question>","answer":"<user response>","phase":"<phase>","step":"<step>"}' \
     -p <feature_slug>
-python -m brain add-edge Signal "dialogue:<phase>:<step>:<feature>" Feature "<feature_name>" SIGNAL_FOR
+python3 -m brain add-edge Signal "dialogue:<phase>:<step>:<feature>" Feature "<feature_name>" SIGNAL_FOR
 ```
 
 ### Per-Phase Question Budgets
@@ -538,7 +538,7 @@ python -m brain add-edge Signal "dialogue:<phase>:<step>:<feature>" Feature "<fe
 All dialogue is persisted as Signal nodes with `SIGNAL_FOR` edges to the Feature.
 Future runs of the same feature can recall prior Q&A context:
 ```bash
-python -m brain search "dialogue:" --type Signal
+python3 -m brain search "dialogue:" --type Signal
 ```
 This prevents re-asking questions the user already answered in a prior session.
 
@@ -584,7 +584,7 @@ Skill("pre-mortem", "<context>")
 1. Razorpay skill (via Skill tool)
        │ fails to resolve / errors / empty output
        ▼
-2. Brain context  (python -m brain context "<topic>" -c arch -b 4000)
+2. Brain context  (python3 -m brain context "<topic>" -c arch -b 4000)
        │ insufficient (< 3 high-confidence nodes)
        ▼
 3. @Slash query   (via /slash protocol to C0B3U3Z2JG1)
@@ -634,15 +634,15 @@ different from raw agent invocation — Nemesis pre-loads the right knowledge.
 
 ```bash
 # 1. Rubick context with budget
-python -m brain context "<topic>" -c arch -b 4000
+python3 -m brain context "<topic>" -c arch -b 4000
 
 # 2. Cross-references
-python -m brain search "<topic>"
+python3 -m brain search "<topic>"
 
 # 3. Related nodes (features, decisions, risks)
-python -m brain search "" --type Feature
-python -m brain search "" --type ArchDecision
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type Feature
+python3 -m brain search "" --type ArchDecision
+python3 -m brain search "" --type ProjectExpert
 ```
 
 Synthesize and answer. Cite node IDs and confidence levels.
@@ -653,21 +653,21 @@ Before Ideation begins, Nemesis assembles:
 
 ```bash
 # 1. Brain-First (Phase -1) — MANDATORY
-python -m brain context "<feature_name>" -c arch -b 4000
-python -m brain search "<feature_name>"
+python3 -m brain context "<feature_name>" -c arch -b 4000
+python3 -m brain search "<feature_name>"
 
 # 2. Related features (reuse prior knowledge)
-python -m brain search "" --type Feature
+python3 -m brain search "" --type Feature
 
 # 3. Service dependencies for mentioned services
-python -m brain search "" --type Project
+python3 -m brain search "" --type Project
 
 # 4. Existing requirements, risks, decisions for this domain
-python -m brain search "" --type Requirement
-python -m brain search "" --type RiskItem
+python3 -m brain search "" --type Requirement
+python3 -m brain search "" --type RiskItem
 
 # 5. Project Expert knowledge for mentioned services
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type ProjectExpert
 ```
 
 If the user uploaded files (screenshots, docs, etc.), include those as additional context
@@ -680,13 +680,13 @@ for Ideation alongside the assembled Rubick knowledge.
 cat workspace/features/<slug>/overview.md
 
 # 2. Load all feature-scoped Rubick knowledge
-python -m brain search "" --type Requirement
-python -m brain search "" --type RiskItem
-python -m brain search "" --type ArchDecision
-python -m brain context "<feature_name>" -c arch -b 6000
+python3 -m brain search "" --type Requirement
+python3 -m brain search "" --type RiskItem
+python3 -m brain search "" --type ArchDecision
+python3 -m brain context "<feature_name>" -c arch -b 6000
 
 # 3. Project Expert briefings for all services in overview
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type ProjectExpert
 ```
 
 ### For Tech Spec (Phase 3)
@@ -697,7 +697,7 @@ cat workspace/features/<slug>/overview.html || cat workspace/features/<slug>/ove
 cat workspace/features/<slug>/solution.html || cat workspace/features/<slug>/solution.md
 
 # 2. Load Project Expert briefings for all services in solution
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type ProjectExpert
 ```
 
 ### For Implementation (Phase 4)
@@ -707,16 +707,16 @@ python -m brain search "" --type ProjectExpert
 cat workspace/features/<slug>/solution.md || cat workspace/features/<slug>/solution.html
 
 # 2. Load testing strategy from Solutioning
-python -m brain search "testing_strategy:<feature>" --type Signal
+python3 -m brain search "testing_strategy:<feature>" --type Signal
 
 # 3. Load Project Expert knowledge for implementation guidance
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type ProjectExpert
 
 # 4. Check existing implementation artifacts
 ls workspace/features/<slug>/implementation/ 2>/dev/null
 
 # 5. Load prior dialogue Q&A for context
-python -m brain search "dialogue:" --type Signal
+python3 -m brain search "dialogue:" --type Signal
 ```
 
 Implementation is delegated to the `/implement` skill (see `commands/implement.md`).
@@ -764,7 +764,7 @@ Uploaded files--+                                      (Feature, Requirement,
 #### 1. Create Feature Node
 
 ```bash
-python -m brain add-node Feature "<feature_name>" \
+python3 -m brain add-node Feature "<feature_name>" \
     -d '{"status":"proposed","owner":"saurav.k@razorpay.com",
          "phase":"ideation","created_at":"<ISO>",
          "sources":{"slack":[],"docs":[],"verbal":"","code":[]}}' \
@@ -809,7 +809,7 @@ relevant information. Include alongside other sources for analysis.
 - If source count < 3: ASK "Are there Slack threads, docs, or PRs I should review?"
 - If domain unclear: ASK "Which Razorpay domain does this belong to?"
 - If no code references: ASK "Any specific repos or services to focus on?"
-- Store Q&A as Signal nodes via `python -m brain add-node Signal "dialogue:ideation:sources:<feature>"`
+- Store Q&A as Signal nodes via `python3 -m brain add-node Signal "dialogue:ideation:sources:<feature>"`
 
 #### 2.5. Structured Brainstorming (NEW — via product-management:brainstorm)
 
@@ -841,8 +841,8 @@ Before deep analysis, classify the change scope:
 
 ```bash
 # Identify services from sources + brainstorm
-python -m brain impact "<primary_service>" --cross-service
-python -m brain search "<service_name>" --type Project
+python3 -m brain impact "<primary_service>" --cross-service
+python3 -m brain search "<service_name>" --type Project
 ```
 
 Classify:
@@ -859,8 +859,8 @@ Classify:
 #### 3. Query Rubick for Existing Context
 
 ```bash
-python -m brain context "<feature_name>" -c arch -b 4000
-python -m brain search "<feature_name>"
+python3 -m brain context "<feature_name>" -c arch -b 4000
+python3 -m brain search "<feature_name>"
 ```
 
 Check if related features, services, or decisions already exist in the graph.
@@ -1047,7 +1047,7 @@ Structure:
 **Open questions are dual-written:** they appear in the overview.md "Open Questions
 (Next Iteration)" section (human-readable, iterable) AND persist to Brain as Signal nodes
 (machine-recallable). On a re-run, Ideation reads prior `dialogue:`/open-question Signal
-nodes (`python -m brain search "open-question:" --type Signal`) so previously answered
+nodes (`python3 -m brain search "open-question:" --type Signal`) so previously answered
 questions are pre-filled as `[x] resolved` and never re-asked.
 
 **Artifact 2: overview.html**
@@ -1174,7 +1174,7 @@ After generating artifacts, store ALL extracted knowledge:
 
 **Feature node** (update with phase completion):
 ```bash
-python -m brain add-node Feature "<feature_name>" \
+python3 -m brain add-node Feature "<feature_name>" \
     -d '{"status":"proposed","phase":"ideation_complete",
          "overview_path":"workspace/features/<slug>/overview.md",
          "html_path":"workspace/features/<slug>/overview.html",
@@ -1185,11 +1185,11 @@ python -m brain add-node Feature "<feature_name>" \
 
 **Requirement nodes** (one per FR/NFR):
 ```bash
-python -m brain add-node Requirement "FR-1: <title>" \
+python3 -m brain add-node Requirement "FR-1: <title>" \
     -d '{"type":"functional","priority":"P0","status":"proposed",
          "feature":"<feature_name>","extraction_method":"ideation"}' \
     -p <feature_slug>
-python -m brain add-edge Feature "<feature_name>" Requirement "FR-1: <title>" HAS_REQUIREMENT
+python3 -m brain add-edge Feature "<feature_name>" Requirement "FR-1: <title>" HAS_REQUIREMENT
 ```
 
 **ArchDecision nodes**, **Cross-project edges**, **Signal nodes** -- same as prior protocol.
@@ -1197,23 +1197,23 @@ python -m brain add-edge Feature "<feature_name>" Requirement "FR-1: <title>" HA
 **Open-question Signal nodes** (one per item in the "Open Questions (Next Iteration)"
 section -- this is what lets a 2nd Ideation pass recall and pre-resolve them):
 ```bash
-python -m brain add-node Signal "open-question:<feature_slug>:<n>" \
+python3 -m brain add-node Signal "open-question:<feature_slug>:<n>" \
     -d '{"question":"<the question>","why":"<why it matters>",
          "resolver":"<team|@slash|doc|code-trace>","assumption":"<working assumption>",
          "status":"open","feature":"<feature_name>","iteration":1}' \
     -p <feature_slug>
-python -m brain add-edge Signal "open-question:<feature_slug>:<n>" Feature "<feature_name>" SIGNAL_FOR
+python3 -m brain add-edge Signal "open-question:<feature_slug>:<n>" Feature "<feature_name>" SIGNAL_FOR
 ```
-On a re-run, first `python -m brain search "open-question:<feature_slug>" --type Signal` —
+On a re-run, first `python3 -m brain search "open-question:<feature_slug>" --type Signal` —
 carry forward any `status:open` items, flip resolved ones to `[x]` in overview.md, and
 bump their Signal `status` to `resolved` with a `resolution` field.
 
 **Learning pipeline**:
 ```bash
-python -m brain add-node Signal "ideation_overview:<feature_name>" \
+python3 -m brain add-node Signal "ideation_overview:<feature_name>" \
     -d '{"interaction_type":"ideation_overview","source_skill":"nemesis","items":"<JSON>"}' \
     -p <primary_slug>
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 **Drive PUSH hook (after learn-flush):** sync this phase's artifacts to Drive so the
@@ -1312,7 +1312,7 @@ Takes overview.md (As-Is + To-Be flows) and cross-checks it line by line against
 actual codebase to produce a definitive solution.md.
 
 **Open-questions handoff:** Solutioning reads the "Open Questions (Next Iteration)" ledger
-from overview.md (and `python -m brain search "open-question:<slug>" --type Signal`). Each
+from overview.md (and `python3 -m brain search "open-question:<slug>" --type Signal`). Each
 question it answers through code tracing / @Slash is flipped to `[x] resolved` in overview.md
 with the resolution recorded, and its `open-question:` Signal `status` bumped to `resolved`.
 Any question still open after Solutioning is surfaced in solution.md as a design assumption
@@ -1347,10 +1347,10 @@ All four must combine. If any pillar contradicts another, the code wins.
 
 ```bash
 cat workspace/features/<slug>/overview.md
-python -m brain search "" --type Requirement
-python -m brain search "" --type RiskItem
-python -m brain search "" --type ArchDecision
-python -m brain context "<feature_name>" -c arch -b 6000
+python3 -m brain search "" --type Requirement
+python3 -m brain search "" --type RiskItem
+python3 -m brain search "" --type ArchDecision
+python3 -m brain context "<feature_name>" -c arch -b 6000
 ```
 
 #### 1.5. Summon Project Experts (Expert Knowledge) -- MANDATORY
@@ -1366,7 +1366,7 @@ for svc in ['<service1>', '<service2>']:
     role = roster['project_to_role'].get(svc, 'unknown')
     print(f'{svc} -> {role}')
 "
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type ProjectExpert
 ```
 
 **Step B** -- For each expert Level >= 2, load expertise (response pipelines, shared
@@ -1421,7 +1421,7 @@ Skill("engineering:code-review", "<proposed code changes summary + file paths>")
 ```
 Flag: complexity hotspots, missing error handling, concurrency issues, potential regressions.
 _Fallback (per Skill Invocation Protocol): if the skill is unavailable, pull review heuristics
-from `python -m brain context "<service> code review" -c arch`, then @Slash; never block tracing._
+from `python3 -m brain context "<service> code review" -c arch`, then @Slash; never block tracing._
 
 **PAUSE POINT 2** — After code tracing + early review:
 - Present: services traced, code paths identified, early review findings
@@ -1564,10 +1564,10 @@ ArchDecision nodes (confidence 0.85), BusinessLogic nodes (confidence 0.85),
 Feature node update, RiskItem status updates.
 
 ```bash
-python -m brain add-node Signal "solutioning_solution:<feature_name>" \
+python3 -m brain add-node Signal "solutioning_solution:<feature_name>" \
     -d '{"interaction_type":"solutioning_solution","source_skill":"nemesis","items":"<JSON>"}' \
     -p <primary_slug>
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 **Drive PUSH hook (after learn-flush):** sync `solution.md`/`solution.html` to Drive via
@@ -1695,7 +1695,7 @@ Flag contradictions between @Slash responses and generated content.
 
 5. **PAUSE POINT 3**: Present full spec summary. ASK "Final review before export. Any changes?"
 6. Share with reviewers, export if needed
-7. Persist Document node to Rubick (`python -m brain learn-flush`)
+7. Persist Document node to Rubick (`python3 -m brain learn-flush`)
 8. **Drive PUSH hook (after learn-flush):** sync `tech-spec.md` to Drive via the
    `/nemesis sync <slug>` flow (`feature_sync.py status` → `push-plan` → LLM uploads →
    `record-push`). Skip if `needs_push=false`; warn-and-continue on any Drive failure.
@@ -1776,14 +1776,14 @@ Full pipeline: @Slash -> Graph -> Engineering skills -> Write back.
 ### Impact Analysis
 
 ```bash
-python -m brain impact "<function>"
-python -m brain search "<change_description>"
+python3 -m brain impact "<function>"
+python3 -m brain search "<change_description>"
 ```
 
 ### Cross-Project Discovery
 
 ```bash
-python -m brain search "<query>"
+python3 -m brain search "<query>"
 ```
 
 ### Ask @Slash
@@ -1801,8 +1801,8 @@ If the answer reveals a connection to an existing feature, link it.
 - **Engineering skills** -- code-review, architecture, system-design, testing-strategy, etc.
 - **Razorpay skills** -- compass:razorpay-api-review
 - **Blade MCP** -- UI component patterns
-- **Graph engine** -- `brain.api` (`python -m brain`) for code intelligence
-- **Context engine** -- `brain.api` (`python -m brain context`) for budget-aware retrieval
+- **Graph engine** -- `brain.api` (`python3 -m brain`) for code intelligence
+- **Context engine** -- `brain.api` (`python3 -m brain context`) for budget-aware retrieval
 
 ---
 
@@ -1932,7 +1932,7 @@ When `/nemesis` is invoked from Claude Code CLI (not the Flask UI), phases work 
 ### Pipeline Status Helper
 Check which phase is next before starting:
 ```bash
-python -m brain feature-health "<feature-slug>"
+python3 -m brain feature-health "<feature-slug>"
 # Returns: {ideation: bool, solutioning: bool, techspec: bool, next_phase: str}
 ```
 
@@ -1953,7 +1953,7 @@ Implementation phase delegates to `/implement` skill for code generation and PR 
 
 ### Context Assembly
 CLI uses the same context functions as the UI:
-- `brain.api` (`python -m brain context`) for graph context
+- `brain.api` (`python3 -m brain context`) for graph context
 - `brain.api` for expert depth via ProjectExpert nodes
 - `/franco` skill for data collection
 

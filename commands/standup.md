@@ -53,16 +53,16 @@ Parse the input after `/standup`:
 
 | Script | Purpose | Used By |
 |--------|---------|---------|
-| `python -m brain stats` | Today's tasks and priorities | `today` |
-| `python -m brain stats` | Weekly task metrics | `weekly` |
-| `python -m brain feature-list --status active` | Active features | `today`, `weekly` |
-| `python -m brain feature-health "<X>"` | Per-feature health metrics | `weekly` |
-| `python -m brain context "<X>" -c arch -b 4000` | Feature context for prep | `prep` |
-| `python -m brain search "<X>" --type ArchDecision` | Recent decisions on a topic | `prep` |
-| `python -m brain search "<X>" --type Signal` | Chronological events | `prep`, `weekly` |
-| `python -m brain search "<X>"` | Free-text search | `find`, `missed` |
-| `python -m brain add-node Signal "<title>" -d '<json>'` | Persist standup/report as Signal | all commands |
-| `python -m brain learn-flush` | Flush staged knowledge to graph | all commands |
+| `python3 -m brain stats` | Today's tasks and priorities | `today` |
+| `python3 -m brain stats` | Weekly task metrics | `weekly` |
+| `python3 -m brain feature-list --status active` | Active features | `today`, `weekly` |
+| `python3 -m brain feature-health "<X>"` | Per-feature health metrics | `weekly` |
+| `python3 -m brain context "<X>" -c arch -b 4000` | Feature context for prep | `prep` |
+| `python3 -m brain search "<X>" --type ArchDecision` | Recent decisions on a topic | `prep` |
+| `python3 -m brain search "<X>" --type Signal` | Chronological events | `prep`, `weekly` |
+| `python3 -m brain search "<X>"` | Free-text search | `find`, `missed` |
+| `python3 -m brain add-node Signal "<title>" -d '<json>'` | Persist standup/report as Signal | all commands |
+| `python3 -m brain learn-flush` | Flush staged knowledge to graph | all commands |
 
 ### GitHub CLI (`gh`)
 
@@ -113,13 +113,13 @@ Returns: PRs authored (open, merged, closed) and reviews given.
 
 **c. Active features from Brain**
 ```bash
-python -m brain feature-list --status active
+python3 -m brain feature-list --status active
 ```
 Returns: features in progress with task counts and completion percentages.
 
 **d. Today's tasks from Planner**
 ```bash
-python -m brain stats
+python3 -m brain stats
 ```
 Returns: today's tasks, priorities, blockers, capacity.
 
@@ -155,11 +155,11 @@ Use the **Daily Standup** rendering template below.
 
 Persist the standup as a Signal node:
 ```bash
-python -m brain add-node Signal "standup: {date}" \
+python3 -m brain add-node Signal "standup: {date}" \
     -d '{"type": "standup", "date": "{date}", "prs_mentioned": {N}, "tasks_mentioned": {M}, "blockers": {B}}' \
     -p _global
 
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ## weekly — Weekly Summary Report
@@ -188,23 +188,23 @@ gh pr list --author @me --state open \
 
 **c. Brain weekly metrics**
 ```bash
-python -m brain stats
+python3 -m brain stats
 
-python -m brain feature-list --status active
+python3 -m brain feature-list --status active
 ```
 For each active feature:
 ```bash
-python -m brain feature-health "{feature_name}"
+python3 -m brain feature-health "{feature_name}"
 ```
 
 **d. Brain timeline (7d)**
 ```bash
-python -m brain search "_global" --type Signal
+python3 -m brain search "_global" --type Signal
 ```
 
 **e. Brain learning stats**
 ```bash
-python -m brain learn-status
+python3 -m brain learn-status
 ```
 
 ### Phase 2 — Synthesize
@@ -222,11 +222,11 @@ Use the **Weekly Report** rendering template below.
 ### Phase 4 — Learn
 
 ```bash
-python -m brain add-node Signal "weekly-report: {week_range}" \
+python3 -m brain add-node Signal "weekly-report: {week_range}" \
     -d '{"type": "weekly_report", "week_start": "{start}", "week_end": "{end}", "prs_merged": {N}, "reviews_given": {M}, "tasks_completed": {T}}' \
     -p _global
 
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ## prep — Meeting Prep Brief
@@ -254,12 +254,12 @@ If `<meeting_or_topic>` does not match a calendar event, treat it as a topic for
 
 **a. Brain context**
 ```bash
-python -m brain context "{topic}" -c arch -b 4000
+python3 -m brain context "{topic}" -c arch -b 4000
 ```
 
 **b. Brain decisions**
 ```bash
-python -m brain search "{topic}" --type ArchDecision
+python3 -m brain search "{topic}" --type ArchDecision
 ```
 
 **c. Confluence docs**
@@ -295,11 +295,11 @@ Use the **Meeting Prep** rendering template below.
 
 If the prep reveals new context (decisions, requirements, risks not yet in Brain):
 ```bash
-python -m brain add-node Signal "meeting-prep: {topic} {date}" \
+python3 -m brain add-node Signal "meeting-prep: {topic} {date}" \
     -d '{"type": "meeting_prep", "topic": "{topic}", "source_skill": "standup"}' \
     -p "{relevant_project}"
 
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 Only stage items that represent genuinely new knowledge discovered during prep.
@@ -330,7 +330,7 @@ Pass the channel list.
 
 Cross-reference channel mentions with Brain features:
 ```bash
-python -m brain search "{mentioned_topic}"
+python3 -m brain search "{mentioned_topic}"
 ```
 
 Flag items where a Slack discussion maps to an active Brain feature or open task.
@@ -343,11 +343,11 @@ Use the **Channel Digest** rendering template below.
 
 Interesting signals from digests get staged:
 ```bash
-python -m brain add-node Signal "digest: {channels} {date}" \
+python3 -m brain add-node Signal "digest: {channels} {date}" \
     -d '{"type": "channel_digest", "channels": [...], "key_topics": [...]}' \
     -p _global
 
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ## summarize — Deep Single-Channel Summary
@@ -362,7 +362,7 @@ Pass the channel name.
 
 2. **Render** using the **Channel Summary** rendering template below.
 
-3. **Learn**: If the summary reveals important signals, stage them via `python -m brain add-node Signal`.
+3. **Learn**: If the summary reveals important signals, stage them via `python3 -m brain add-node Signal`.
 
 ## find — Find Discussions
 
@@ -376,7 +376,7 @@ Pass the topic as search query.
 
 2. **Brain search** (parallel):
 ```bash
-python -m brain search "{topic}"
+python3 -m brain search "{topic}"
 ```
 
 3. **Merge and deduplicate**: Combine Slack results with Brain Signal nodes.
@@ -411,13 +411,13 @@ Surfaces communications that arrived since the last standup or last check.
 
 1. **Query Brain for last standup timestamp:**
 ```bash
-python -m brain search "standup" --type Signal
+python3 -m brain search "standup" --type Signal
 ```
 Extract the most recent standup Signal's timestamp. If none, default to 24 hours ago.
 
 2. **Query Planner for missed items:**
 ```bash
-python -m brain search "" --type Task
+python3 -m brain search "" --type Task
 ```
 
 3. **Search Slack for mentions since last check:**
@@ -718,7 +718,7 @@ If no missed items: `> All clear — no missed communications since {last_check_
 | Atlassian skill error | Skill tool fails for weekly report | Skip Atlassian section. Generate weekly report from GitHub + Brain + Planner only. |
 | Meeting not found | `prep` argument doesn't match any calendar event | Treat as topic prep instead. Note: "Meeting not found in calendar — preparing topic brief." |
 | Channel not found | `digest` or `summarize` channel doesn't exist | Skip that channel. Warn: "Channel #{name} not found. Skipping." Continue with remaining channels. |
-| `python -m brain` error | Learning pipeline fails | Log warning. Do NOT block the standup render — persistence failure is non-fatal. Note at bottom: "Learning: failed to persist (non-blocking)." |
+| `python3 -m brain` error | Learning pipeline fails | Log warning. Do NOT block the standup render — persistence failure is non-fatal. Note at bottom: "Learning: failed to persist (non-blocking)." |
 
 ## Learning Protocol
 
@@ -739,7 +739,7 @@ Every `/standup` command writes knowledge back to workspace/brain.db via the lea
 The learning pipeline tracks standup frequency for personal analytics:
 - Daily standups should appear ~5x per work week
 - Weekly reports should appear ~1x per week
-- Gaps in standup cadence get flagged by `python -m brain stats`
+- Gaps in standup cadence get flagged by `python3 -m brain stats`
 
 ### Knowledge Escalation
 
@@ -749,7 +749,7 @@ When a standup, digest, or prep reveals new context not yet in Brain:
 - **New requirement from meeting prep** -> stage as Requirement (confidence 0.7)
 - **Cross-project dependency found** -> stage RELATES_TO edge
 
-These are staged via `python -m brain add-node` and flushed via `python -m brain learn-flush`. They appear in
+These are staged via `python3 -m brain add-node` and flushed via `python3 -m brain learn-flush`. They appear in
 `/brain learn-status` for review and confidence bumping.
 
 ## Boundary Docs
@@ -769,10 +769,10 @@ email. It reads from many sources, renders clean views, and persists summaries a
 **Interacts with**:
 - **Slack plugin skills** — `standup`, `channel-digest`, `summarize-channel`, `find-discussions`, `draft-announcement` (direct Skill tool invocation — architectural exception)
 - **Atlassian skills** — `generate-status-report`, `search-company-knowledge` (via Skill tool)
-- **Brain API** — `python -m brain` (read data from graph via `brain.api`)
-- **Learning pipeline** — `python -m brain add-node` + `python -m brain learn-flush` (write Signal nodes after every command)
+- **Brain API** — `python3 -m brain` (read data from graph via `brain.api`)
+- **Learning pipeline** — `python3 -m brain add-node` + `python3 -m brain learn-flush` (write Signal nodes after every command)
 - **GitHub CLI** — `gh` (PRs, reviews, search)
 - **Calendar MCP** — `list_events`, `get_event` (today's schedule, meeting details)
 - **Google Tasks MCP** — `list_tasks`, `list_task_lists` (open task items)
 
-**Data flow**: Sources (Slack + GitHub + Calendar + Brain) -> Gather -> Synthesize -> Render -> Learn (Signal node in workspace/brain.db) -> Available to all skills via `python -m brain context`
+**Data flow**: Sources (Slack + GitHub + Calendar + Brain) -> Gather -> Synthesize -> Render -> Learn (Signal node in workspace/brain.db) -> Available to all skills via `python3 -m brain context`

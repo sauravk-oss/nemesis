@@ -13,8 +13,8 @@ For quick structural diagrams, you use Mermaid. For freeform brainstorms, Excali
 - **Mermaid MCP** (structural/draft) -- `mcp__7428c252-36b2-42ac-a44c-91316b71cfda__validate_and_render_mermaid_diagram` validates syntax and renders to UI widget. Use for: quick sequence diagrams, ER diagrams, class diagrams, gantt charts, state machines. Supports: sequence, flowchart, ER, gantt, class, C4, state, pie, mindmap, timeline.
 - **Excalidraw MCP** (whiteboard) -- `mcp__3000b99d-3124-47c9-a354-c76482a50287__create_view` for hand-drawn style diagrams in whiteboard mode. `mcp__3000b99d-3124-47c9-a354-c76482a50287__read_me` for reading existing diagrams.
 - **Figma MCP** (design reference) -- `mcp__f39bd90b-ba0c-49f7-bd5c-738929e82549__get_design_context` + `get_screenshot` for pulling existing design context as reference.
-- **Brain graph** (`python -m brain` / `brain.api`) -- nodes + edges auto-generate diagram syntax
-- **Context engine** (`python -m brain context` / `brain.api`) -- feature context for diagram content
+- **Brain graph** (`python3 -m brain` / `brain.api`) -- nodes + edges auto-generate diagram syntax
+- **Context engine** (`python3 -m brain context` / `brain.api`) -- feature context for diagram content
 - **Slash Skill** (`/slash`) -- Razorpay domain context when generating diagrams for Razorpay features
 
 **Design principle**: Diagrams are data-driven. Every element in a diagram traces back to a Brain
@@ -48,11 +48,11 @@ best diagram type from the description and route accordingly.
 
 1. Query pre-existing knowledge:
    ```
-   python -m brain context "<name>" -c diagram -b 3000
+   python3 -m brain context "<name>" -c diagram -b 3000
    ```
 2. Check for existing diagrams of this type:
    ```
-   python -m brain search "<name>" --type Document
+   python3 -m brain search "<name>" --type Document
    ```
 3. Decision logic:
    - If a Document node with matching `diagram_type` exists and was created < 24h ago: offer to re-use or regenerate
@@ -95,7 +95,7 @@ Primary tool: **Canva MCP** for polished output. Fallback: Mermaid sequence diag
 
 **Phase 0 -- Brain Check:**
 ```
-python -m brain context "<feature>" -c diagram -b 3000
+python3 -m brain context "<feature>" -c diagram -b 3000
 ```
 Extract: Requirements, Functions, Endpoints, DataStores, Signals, ArchDecisions
 
@@ -161,13 +161,13 @@ The MCP tool validates syntax and renders to a UI widget.
 
 **Phase 3 -- Learn:**
 ```
-python -m brain add-node Document "flow: <feature>" \
+python3 -m brain add-node Document "flow: <feature>" \
     -d '{"diagram_type": "sequence", "feature": "<feature>", "participant_count": N, "message_count": M, "created_at": "<ISO>"}' \
     -p "<slug_if_known>"
 
-python -m brain add-edge Document "flow: <feature>" Feature "<feature>" EXTRACTED_FROM
+python3 -m brain add-edge Document "flow: <feature>" Feature "<feature>" EXTRACTED_FROM
 
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ## arch -- Service Architecture Diagram
@@ -179,9 +179,9 @@ Primary tool: **Canva MCP**. Fallback: Mermaid C4/flowchart.
 
 1. **Brain query:**
    ```
-   python -m brain search "" --type Endpoint
-   python -m brain search "" --type DataStore
-   python -m brain search "<slug>"
+   python3 -m brain search "" --type Endpoint
+   python3 -m brain search "" --type DataStore
+   python3 -m brain search "<slug>"
    ```
 
 2. **Build Mermaid C4 syntax:**
@@ -238,9 +238,9 @@ Generates a Mermaid ER diagram showing data model relationships.
 
 1. **Brain query:**
    ```
-   python -m brain search "" --type DataStore
-   python -m brain search "" --type Class
-   python -m brain search "<feature>" --type DataStore
+   python3 -m brain search "" --type DataStore
+   python3 -m brain search "" --type Class
+   python3 -m brain search "<feature>" --type DataStore
    ```
 
 2. **Build Mermaid ER syntax:**
@@ -292,12 +292,12 @@ Generates a color-coded flowchart showing the blast radius of a proposed change.
 
 1. **Run impact analysis:**
    ```
-   python -m brain impact --type <T> --name <N> --depth 3
+   python3 -m brain impact --type <T> --name <N> --depth 3
    ```
    Parse the change description to identify affected node type and name.
    If ambiguous, search first:
    ```
-   python -m brain search "<change>"
+   python3 -m brain search "<change>"
    ```
 
 2. **Color-code by impact level:**
@@ -354,8 +354,8 @@ Generates a Mermaid gantt chart showing feature progress and milestones.
 
 1. **Brain query:**
    ```
-   python -m brain search "<feature>" --type Feature
-   python -m brain feature-health "<feature>"
+   python3 -m brain search "<feature>" --type Feature
+   python3 -m brain feature-health "<feature>"
    ```
 
 2. **Build Mermaid gantt syntax:**
@@ -403,7 +403,7 @@ Generates a hand-drawn style diagram via Excalidraw MCP for brainstorming sessio
 
 1. **Gather context** (if topic matches a known feature):
    ```
-   python -m brain context "<topic>" -c diagram -b 2000
+   python3 -m brain context "<topic>" -c diagram -b 2000
    ```
 
 2. **Build Excalidraw diagram:**
@@ -432,8 +432,8 @@ Generates a Mermaid class diagram for a repository or specific module.
 
 1. **Brain query:**
    ```
-   python -m brain search "" --type Class
-   python -m brain search "" --type Function
+   python3 -m brain search "" --type Class
+   python3 -m brain search "" --type Function
    ```
    If `--module M` is specified, filter by module name in the node data.
 
@@ -495,7 +495,7 @@ Re-renders or exports the last generated diagram.
 
 1. Find the most recent Document node with a `diagram_type`:
    ```
-   python -m brain search "diagram" --type Document
+   python3 -m brain search "diagram" --type Document
    ```
    If `<id>` is provided, find that specific Document node.
 
@@ -643,7 +643,7 @@ Every diagram command persists knowledge back to Brain. This is mandatory.
 
 1. **Create Document node:**
    ```
-   python -m brain add-node Document "diagram:<type> <target> <date>" \
+   python3 -m brain add-node Document "diagram:<type> <target> <date>" \
        -d '{
            "diagram_type": "<sequence|c4|flowchart|er|gantt|class|whiteboard|impact>",
            "feature": "<target>",
@@ -655,10 +655,10 @@ Every diagram command persists knowledge back to Brain. This is mandatory.
        }' \
        -p "<slug_if_known>"
 
-   python -m brain add-edge Document "diagram:<type> <target> <date>" Feature "<feature>" EXTRACTED_FROM
-   python -m brain add-edge Document "diagram:<type> <target> <date>" Project "<slug>" EXTRACTED_FROM
+   python3 -m brain add-edge Document "diagram:<type> <target> <date>" Feature "<feature>" EXTRACTED_FROM
+   python3 -m brain add-edge Document "diagram:<type> <target> <date>" Project "<slug>" EXTRACTED_FROM
 
-   python -m brain learn-flush
+   python3 -m brain learn-flush
    ```
 
 2. **EXTRACTED_FROM edges**: Link the Document to every Brain node that contributed data
@@ -670,7 +670,7 @@ Every diagram command persists knowledge back to Brain. This is mandatory.
 ### Signal node (every invocation):
 
 ```
-python -m brain add-node Signal "diagram:<type> <target> <date>" \
+python3 -m brain add-node Signal "diagram:<type> <target> <date>" \
     -d '{"source_type": "diagram_interaction", "command": "<type>", "target": "<target>"}' \
     -p diagram
 ```
@@ -706,7 +706,7 @@ and writes Document nodes back to Brain.
 - `/slash` -- queries @Slash for Razorpay domain context when Brain is thin
 - `/doc` -- provides diagram references for tech spec insertion
 - `/explain` -- flow diagrams complement /explain flow descriptions
-- Brain (`python -m brain context`, `python -m brain search`) -- reads all context, writes Document nodes
-- Learning pipeline (`python -m brain add-node` + `python -m brain learn-flush`) -- records diagram creation for cross-skill reuse
+- Brain (`python3 -m brain context`, `python3 -m brain search`) -- reads all context, writes Document nodes
+- Learning pipeline (`python3 -m brain add-node` + `python3 -m brain learn-flush`) -- records diagram creation for cross-skill reuse
 
 **Data flow**: Brain nodes -> Diagram syntax generation -> MCP rendering -> Document node (workspace/brain.db) -> Available to /doc, /nemesis, /explain

@@ -10,7 +10,7 @@ across 45+ Razorpay microservices in a single `workspace/brain.db`.
 **Architecture**: SQLite (typed code tables + generic workflow nodes + FTS5) + NetworkX (in-memory graph algorithms) + LanceDB (lazy vector search).
 
 **Your tools:**
-- **Brain CLI** — `python -m brain <command>` for all graph operations
+- **Brain CLI** — `python3 -m brain <command>` for all graph operations
 - **Brain Python API** — `from brain.api import BrainAPI` for direct programmatic access
 - **MCP Tools** — Slack, Gmail, Calendar, Drive, Kubernetes (you are the ONLY agent that calls these directly for data ingestion)
 - **GitHub CLI** — `gh` for PRs, issues, repos, code search
@@ -25,31 +25,31 @@ Parse the input after `/brain`:
 | Input | Action | Tool |
 |---|---|---|
 | **Query & Retrieval** | | |
-| `context <target> [--budget N] [--consumer C]` | Hybrid retrieval (graph + FTS5 + vector) | `python -m brain context <target> -b N -c C` |
-| `search <query> [--type T]` | Full-text search across nodes | `python -m brain search <query> --type T` |
-| `search-code <query> [--project P]` | Search code bodies via FTS5 | `python -m brain search-code <query> -p P` |
-| `who-calls <function> [--depth N]` | All callers up to N hops | `python -m brain who-calls <func> -d N` |
-| `what-calls <function> [--depth N]` | All callees up to N hops | `python -m brain what-calls <func> -d N` |
-| `path <source> <target>` | Shortest path between two nodes | `python -m brain path <src> <tgt>` |
+| `context <target> [--budget N] [--consumer C]` | Hybrid retrieval (graph + FTS5 + vector) | `python3 -m brain context <target> -b N -c C` |
+| `search <query> [--type T]` | Full-text search across nodes | `python3 -m brain search <query> --type T` |
+| `search-code <query> [--project P]` | Search code bodies via FTS5 | `python3 -m brain search-code <query> -p P` |
+| `who-calls <function> [--depth N]` | All callers up to N hops | `python3 -m brain who-calls <func> -d N` |
+| `what-calls <function> [--depth N]` | All callees up to N hops | `python3 -m brain what-calls <func> -d N` |
+| `path <source> <target>` | Shortest path between two nodes | `python3 -m brain path <src> <tgt>` |
 | **Analysis** | | |
-| `impact <func1,func2,...> [--depth N]` | Blast radius / impact analysis | `python -m brain impact <funcs> -d N` |
-| `health <project>` | Service health report (A-F grade) | `python -m brain health <project>` |
-| `dead-code <project>` | Dead code candidates | `python -m brain dead-code <project>` |
-| `test-gaps <project>` | Untested high-PageRank functions | `python -m brain test-gaps <project>` |
-| `stats` | Full graph statistics | `python -m brain stats` |
+| `impact <func1,func2,...> [--depth N]` | Blast radius / impact analysis | `python3 -m brain impact <funcs> -d N` |
+| `health <project>` | Service health report (A-F grade) | `python3 -m brain health <project>` |
+| `dead-code <project>` | Dead code candidates | `python3 -m brain dead-code <project>` |
+| `test-gaps <project>` | Untested high-PageRank functions | `python3 -m brain test-gaps <project>` |
+| `stats` | Full graph statistics | `python3 -m brain stats` |
 | **Node/Edge CRUD** | | |
-| `add <type> <name> [--data JSON] [--project P] [--confidence F]` | Create/update node | `python -m brain add-node <type> <name> -d JSON -p P -c F` |
-| `get <type> <name>` | Read a node | `python -m brain get-node <type> <name>` |
-| `delete <type> <name>` | Delete a node | `python -m brain delete-node <type> <name>` |
-| `link <from_type> <from> <to_type> <to> <edge_type>` | Create edge | `python -m brain add-edge ...` |
+| `add <type> <name> [--data JSON] [--project P] [--confidence F]` | Create/update node | `python3 -m brain add-node <type> <name> -d JSON -p P -c F` |
+| `get <type> <name>` | Read a node | `python3 -m brain get-node <type> <name>` |
+| `delete <type> <name>` | Delete a node | `python3 -m brain delete-node <type> <name>` |
+| `link <from_type> <from> <to_type> <to> <edge_type>` | Create edge | `python3 -m brain add-edge ...` |
 | **Features** | | |
-| `feature create <name> [--owner O]` | Create Feature node | `python -m brain feature-create <name> --owner O` |
-| `feature update <name> --status S` | Update feature status | `python -m brain feature-update <name> --status S` |
-| `feature list [--status S]` | List features | `python -m brain feature-list --status S` |
-| `feature health <name>` | Feature health (tasks, reqs, risks) | `python -m brain feature-health <name>` |
+| `feature create <name> [--owner O]` | Create Feature node | `python3 -m brain feature-create <name> --owner O` |
+| `feature update <name> --status S` | Update feature status | `python3 -m brain feature-update <name> --status S` |
+| `feature list [--status S]` | List features | `python3 -m brain feature-list --status S` |
+| `feature health <name>` | Feature health (tasks, reqs, risks) | `python3 -m brain feature-health <name>` |
 | **Learning Pipeline** | | |
-| `learn status` | Show staged/flushed/skipped counts | `python -m brain learn-status` |
-| `learn flush [--dry-run]` | Flush staged items to graph | `python -m brain learn-flush` |
+| `learn status` | Show staged/flushed/skipped counts | `python3 -m brain learn-status` |
+| `learn flush [--dry-run]` | Flush staged items to graph | `python3 -m brain learn-flush` |
 | **Ingestion** | | |
 | `ingest <url_or_id>` | Auto-detect source → fetch → extract → upsert | See Ingestion Pipeline below |
 | `ingest-code <repo_path> [--project P]` | Extract code graph via Graphify | `graphify <repo_path> --export json` → import |
@@ -57,9 +57,9 @@ Parse the input after `/brain`:
 | `github-search <query>` | Search code/PRs/issues | `gh search` → brain add |
 | **Lifecycle** | | |
 | `init` | Seed 45 services + deps + first code extraction | Full pipeline |
-| `refresh` | Reload NetworkX from edges table | `python -m brain refresh` |
-| `seed` | Seed services + dependency edges | `python -m brain seed` |
-| `migrate` | Migrate from old rubick.db | `python -m brain migrate-rubick workspace/rubick.db` |
+| `refresh` | Reload NetworkX from edges table | `python3 -m brain refresh` |
+| `seed` | Seed services + dependency edges | `python3 -m brain seed` |
+| `migrate` | Migrate from old rubick.db | `python3 -m brain migrate-rubick workspace/rubick.db` |
 | **Maintenance** | | |
 | `archive [--older-than 180d]` | Strip old node fields per retention | Archive pipeline |
 | `sync-list` | Show sync cursors per source | Direct SQL query |
@@ -128,8 +128,8 @@ Read fetched content and extract:
 
 ### Step 4 — Upsert to brain
 ```bash
-python -m brain add-node Signal "<title>" -d '{"source_type":"...","summary":"...","urgency":0.7}' -p <project> -c 0.9
-python -m brain add-edge Signal "<title>" Person "<person>" MENTIONED_IN
+python3 -m brain add-node Signal "<title>" -d '{"source_type":"...","summary":"...","urgency":0.7}' -p <project> -c 0.9
+python3 -m brain add-edge Signal "<title>" Person "<person>" MENTIONED_IN
 ```
 
 ### Step 5 — Update sync state (automatic)
@@ -214,19 +214,19 @@ health = brain.health("emandate-service")
 
 When `brain init` is called (first-time setup):
 
-1. **Seed services**: `python -m brain seed` (45 services + dependency edges)
+1. **Seed services**: `python3 -m brain seed` (45 services + dependency edges)
 2. **Clone repos**: `gh repo clone razorpay/<slug> workspace/repos/<slug>` for each service
 3. **Extract code**: For each cloned repo, run Graphify → import to brain
 4. **Build FTS5**: Automatic via triggers on insert
-5. **Load NetworkX**: `python -m brain refresh`
-6. **Verify**: `python -m brain stats`
+5. **Load NetworkX**: `python3 -m brain refresh`
+6. **Verify**: `python3 -m brain stats`
 
 ## Migration from rubick.db
 
 When `brain migrate` is called:
 
 ```bash
-python -m brain migrate-rubick workspace/rubick.db
+python3 -m brain migrate-rubick workspace/rubick.db
 ```
 
 This reads rubick.db (read-only) and writes to brain.db:

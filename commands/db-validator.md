@@ -288,7 +288,7 @@ This is the flagship command. Runs all available layers in sequence.
 ### Phase 0: Brain context
 
 ```bash
-python -m brain context "<feature>" -c deploy-validator -b 3000
+python3 -m brain context "<feature>" -c deploy-validator -b 3000
 ```
 
 Extract: Splitz flag names, DCS config keys, services involved, known risks.
@@ -366,8 +366,8 @@ Recommended next steps:
 ### Phase 5: Persist to Brain
 
 ```bash
-python -m brain add-node Signal "deploy-validation-<feature>-<date>" -d '{"text":"<verdict-summary>","feature":"<feature>","confidence":0.9,"source_type":"deploy-validator"}'
-python -m brain learn-flush
+python3 -m brain add-node Signal "deploy-validation-<feature>-<date>" -d '{"text":"<verdict-summary>","feature":"<feature>","confidence":0.9,"source_type":"deploy-validator"}'
+python3 -m brain learn-flush
 ```
 
 ---
@@ -453,8 +453,8 @@ This is a targeted check for the `cfb-dfb-instant-offer-discount` feature (Clear
 Every validation result is persisted as a Signal node:
 
 ```bash
-python -m brain add-node Signal "db-validation-<payment_id_or_feature>-<YYYYMMDD>" -d '{"text":"<one-line verdict: PASS/WARN/BLOCK + key findings>","feature":"<feature_or_db-validator>","confidence":0.9,"source_type":"db-validator"}'
-python -m brain learn-flush
+python3 -m brain add-node Signal "db-validation-<payment_id_or_feature>-<YYYYMMDD>" -d '{"text":"<one-line verdict: PASS/WARN/BLOCK + key findings>","feature":"<feature_or_db-validator>","confidence":0.9,"source_type":"db-validator"}'
+python3 -m brain learn-flush
 ```
 
 This means: if you validate the same payment twice, the second run finds the first Signal

@@ -154,7 +154,7 @@ Follow the reference doc pattern for DEEP hierarchical sub-sections:
 
 ```bash
 # Feature context
-python -m brain context "<feature_name>" -c techspec -b 8000
+python3 -m brain context "<feature_name>" -c techspec -b 8000
 
 # Phase artifacts
 cat workspace/features/<slug>/overview.md
@@ -162,10 +162,10 @@ cat workspace/features/<slug>/solution.md        # or solution_v3.md
 ls workspace/features/<slug>/risk_analysis/      # Risk Analysis outputs
 
 # Brain nodes
-python -m brain search "<feature_name>" --type Requirement
-python -m brain search "<feature_name>" --type RiskItem
-python -m brain search "<feature_name>" --type ArchDecision
-python -m brain search "<feature_name>" --type BusinessLogic
+python3 -m brain search "<feature_name>" --type Requirement
+python3 -m brain search "<feature_name>" --type RiskItem
+python3 -m brain search "<feature_name>" --type ArchDecision
+python3 -m brain search "<feature_name>" --type BusinessLogic
 ```
 
 ### Step 0.5 — @Slash Fact Verification
@@ -203,7 +203,7 @@ Q7: "Which services are affected when convenience_fee calculation changes?"
 
 **Store via brain.api slash methods**:
 ```bash
-python -m brain add-node Signal "slash:techspec:<feature_name>:<date>" -d '{"feature":"<feature_name>","phase":"techspec","query":"<Q_text>","response":"<slash_response>","source_type":"slash"}'
+python3 -m brain add-node Signal "slash:techspec:<feature_name>:<date>" -d '{"feature":"<feature_name>","phase":"techspec","query":"<Q_text>","response":"<slash_response>","source_type":"slash"}'
 ```
 
 ### Step 1 — Create Google Doc from Template
@@ -611,12 +611,12 @@ Before finalizing the Google Doc:
 After generating the doc:
 
 ```bash
-python -m brain add-node Document "Tech Spec: <feature_name>" -d '{"type":"tech_spec","format":"google_doc","doc_id":"<google_doc_id>","doc_url":"<shareable_url>","feature":"<feature_name>","sections_generated":16,"diagrams_count":<N>,"skills_used":["product-management:write-spec","engineering:system-design"],"generated_by":"techspec","generated_at":"<ISO>"}' --confidence 0.9
+python3 -m brain add-node Document "Tech Spec: <feature_name>" -d '{"type":"tech_spec","format":"google_doc","doc_id":"<google_doc_id>","doc_url":"<shareable_url>","feature":"<feature_name>","sections_generated":16,"diagrams_count":<N>,"skills_used":["product-management:write-spec","engineering:system-design"],"generated_by":"techspec","generated_at":"<ISO>"}' --confidence 0.9
 
-python -m brain add-edge Feature "<feature_name>" Document "Tech Spec: <feature_name>" HAS_DOCUMENT
+python3 -m brain add-edge Feature "<feature_name>" Document "Tech Spec: <feature_name>" HAS_DOCUMENT
 
 # Update Feature node
-python -m brain add-node Feature "<feature_name>" -d '{"status":"documented","phase":"techspec_complete","tech_spec_doc_id":"<google_doc_id>","tech_spec_url":"<shareable_url>"}' --confidence 0.9
+python3 -m brain add-node Feature "<feature_name>" -d '{"status":"documented","phase":"techspec_complete","tech_spec_doc_id":"<google_doc_id>","tech_spec_url":"<shareable_url>"}' --confidence 0.9
 ```
 
 ## Rendering

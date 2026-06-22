@@ -52,12 +52,12 @@ Before creating anything, check what exists:
 
 1. Query Brain for existing designs/diagrams:
    ```bash
-   python -m brain context "<description>" -c diagram -b 2000
+   python3 -m brain context "<description>" -c diagram -b 2000
    ```
 
 2. Check for existing Document nodes with diagram type:
    ```bash
-   python -m brain search "<description>" --type Document
+   python3 -m brain search "<description>" --type Document
    ```
 
 3. If `from-figma`: fetch design context + screenshot via Figma MCP
@@ -163,9 +163,9 @@ For Mermaid: the rendered widget IS the output; for file export, re-render to SV
 **Persist to Brain:**
 Save the diagram as a Document node in workspace/brain.db:
 ```bash
-python -m brain add-node Document "diagram:<feature>:<type>" -d '{"diagram_type":"<flow|arch|er|class|gantt|whiteboard|mockup>","mcp_used":"<canva|mermaid|excalidraw|figma>","design_id":"<canva_design_id or empty>","description":"<what the diagram shows>","feature":"<feature_slug>"}' --confidence 0.9
-python -m brain add-edge Feature "<feature>" Document "diagram:<feature>:<type>" RELATES_TO
-python -m brain learn-flush
+python3 -m brain add-node Document "diagram:<feature>:<type>" -d '{"diagram_type":"<flow|arch|er|class|gantt|whiteboard|mockup>","mcp_used":"<canva|mermaid|excalidraw|figma>","design_id":"<canva_design_id or empty>","description":"<what the diagram shows>","feature":"<feature_slug>"}' --confidence 0.9
+python3 -m brain add-edge Feature "<feature>" Document "diagram:<feature>:<type>" RELATES_TO
+python3 -m brain learn-flush
 ```
 
 Save exported files to: `workspace/features/<slug>/designs/`

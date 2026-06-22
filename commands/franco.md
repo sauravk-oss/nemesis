@@ -14,7 +14,7 @@ command, normalize it, and ingest it into `workspace/brain.db` via the learning 
 - **Brain API** — `from brain.api import BrainAPI`: `detect_source()` classifies a source;
   `ingest()` is phase-1 (reads local files directly, returns `needs_fetch` for remote sources);
   `ingest_mcp_response()` is phase-2 (normalizes an LLM-fetched payload → `learn()` → `flush()`, dedups on `(source_type, source_id)`)
-- **Brain CLI** — `python -m brain ingest <source>` (phase-1) and `python -m brain ingest-mcp <type> <id> --payload FILE` (phase-2)
+- **Brain CLI** — `python3 -m brain ingest <source>` (phase-1) and `python3 -m brain ingest-mcp <type> <id> --payload FILE` (phase-2)
 - **MCP Tools** — Slack, Gmail, Drive, Google Workspace, Calendar, Figma, Canva (via LLM tool calls)
 - **GitHub CLI** — `gh` for PRs, issues, code search across razorpay org
 - **Local filesystem** — Read files, glob directories
@@ -73,7 +73,7 @@ a two-phase approach:
 
 ### Phase 1: Detect + classify (Python)
 ```bash
-python -m brain ingest "<url>" --feature <slug>
+python3 -m brain ingest "<url>" --feature <slug>
 ```
 The brain package **never calls an MCP**. For a remote/MCP-backed source this
 returns `{"status": "needs_fetch", "source_type": ..., "source_id": ..., "node_type": ...}`
@@ -101,7 +101,7 @@ When Franco returns `status: needs_fetch`, YOU (the LLM) must:
    ```
    …or via the CLI (write the payload to a JSON file first):
    ```bash
-   python -m brain ingest-mcp slack_thread 'C0B3U3Z2JG1:1234567890' \
+   python3 -m brain ingest-mcp slack_thread 'C0B3U3Z2JG1:1234567890' \
        --payload /tmp/payload.json --feature <slug>
    ```
 
@@ -132,7 +132,7 @@ are read directly by `brain ingest` — no Phase 2 needed.
 
 For `docs` command (local directory ingestion):
 ```bash
-python -m brain ingest <dir-path> --feature <slug> --project <project_slug>
+python3 -m brain ingest <dir-path> --feature <slug> --project <project_slug>
 ```
 When `<dir-path>` is a directory, `brain ingest` recurses it and ingests every
 `.md`, `.txt`, `.rst`, `.html` file directly (each becomes a Document node),
@@ -163,7 +163,7 @@ for source in sources:
 ## Status Dashboard
 
 ```bash
-python -m brain search "" --type Signal
+python3 -m brain search "" --type Signal
 ```
 
 Shows: total interactions, by node type, by status (staged/flushed/skipped), recent 10 items.

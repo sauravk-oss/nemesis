@@ -16,9 +16,9 @@ all 5 Atlassian skills** and the only skill that creates, triages, and tracks wo
   4. `atlassian:capture-tasks-from-meeting-notes` -- meeting notes to assigned tasks
   5. `atlassian:search-company-knowledge` -- cross-system search (Confluence + Jira)
 - **Brain** (workspace/brain.db) -- feature nodes, requirements, risks, decisions, JiraIssue nodes
-- **Graph Engine** -- `python -m brain` (`brain.api`) for node/edge CRUD, feature health, cross-refs
-- **Context Engine** -- `python -m brain context` (`brain.api`) for budget-aware retrieval
-- **Learning Engine** -- `python -m brain add-node` + `python -m brain learn-flush` for persisting created tickets as graph nodes
+- **Graph Engine** -- `python3 -m brain` (`brain.api`) for node/edge CRUD, feature health, cross-refs
+- **Context Engine** -- `python3 -m brain context` (`brain.api`) for budget-aware retrieval
+- **Learning Engine** -- `python3 -m brain add-node` + `python3 -m brain learn-flush` for persisting created tickets as graph nodes
 - **Google Tasks** -- personal task sync for action items
 
 **Design principle**: Tickets are the output of knowledge. Brain provides the context (requirements,
@@ -39,7 +39,7 @@ Parse the input after `/tickets`:
 | `status [--project P]` | Project status report | `atlassian:generate-status-report` + Brain health |
 | `search <query>` | Search Jira + Confluence | `atlassian:search-company-knowledge` + Brain cross-ref |
 | `milestone <feature>` | Feature milestone tracking | Brain feature nodes + DevRev sync |
-| `link <ticket_id> --feature <F>` | Link ticket to Brain feature | `python -m brain add-edge` |
+| `link <ticket_id> --feature <F>` | Link ticket to Brain feature | `python3 -m brain add-edge` |
 | `sync [--feature F]` | Sync Brain and DevRev state | DevRev API + graph update |
 | (no subcommand, just a question) | Treat as `search <question>` | Same as `search` pipeline |
 
@@ -65,16 +65,16 @@ Parse the input after `/tickets`:
 If `--from-arch <feature>` is provided, gather rich context:
 
 ```
-python -m brain context "<feature>" -c arch -b 4000
+python3 -m brain context "<feature>" -c arch -b 4000
 ```
 
 Then query specific node types linked to the feature:
 
 ```
-python -m brain search "<feature>" --type Requirement
-python -m brain search "<feature>" --type RiskItem
-python -m brain search "<feature>" --type ArchDecision
-python -m brain feature-health "<feature>"
+python3 -m brain search "<feature>" --type Requirement
+python3 -m brain search "<feature>" --type RiskItem
+python3 -m brain search "<feature>" --type ArchDecision
+python3 -m brain feature-health "<feature>"
 ```
 
 Extract from results:
@@ -139,7 +139,7 @@ On user confirmation:
 Persist the created ticket as a JiraIssue node:
 
 ```
-python -m brain add-node JiraIssue "<ticket_id>: <title>" \
+python3 -m brain add-node JiraIssue "<ticket_id>: <title>" \
     -d '{"ticket_id": "<id>", "title": "<title>", "type": "<type>",
          "priority": "<priority>", "status": "open",
          "source_type": "devrev", "created_by_skill": "tickets",
@@ -150,23 +150,23 @@ python -m brain add-node JiraIssue "<ticket_id>: <title>" \
 If `--from-arch <feature>` was used, link to the feature:
 
 ```
-python -m brain add-edge Feature "<feature>" JiraIssue "<ticket_id>: <title>" HAS_TASK
+python3 -m brain add-edge Feature "<feature>" JiraIssue "<ticket_id>: <title>" HAS_TASK
 ```
 
 Link to source Requirements:
 
 ```
-python -m brain add-edge JiraIssue "<ticket_id>: <title>" Requirement "<requirement>" IMPLEMENTS
+python3 -m brain add-edge JiraIssue "<ticket_id>: <title>" Requirement "<requirement>" IMPLEMENTS
 ```
 
 Record to learning pipeline:
 
 ```
-python -m brain add-node JiraIssue "<ticket_id>: <title>" \
+python3 -m brain add-node JiraIssue "<ticket_id>: <title>" \
     -d '{"ticket_id": "<id>", "source_type": "devrev", "created_by_skill": "tickets"}' \
     -p "<feature_slug or _global>"
 
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ## from-spec -- Convert Spec to Epic + Tickets
@@ -182,7 +182,7 @@ python -m brain learn-flush
 
 3. **For each created ticket**: Persist as JiraIssue node in workspace/brain.db:
    ```
-   python -m brain add-node JiraIssue "<ticket_id>: <title>" \
+   python3 -m brain add-node JiraIssue "<ticket_id>: <title>" \
        -d '{"ticket_id": "<id>", "title": "<title>", "type": "<type>",
             "source_type": "jira", "created_by_skill": "tickets",
             "extraction_method": "spec-to-backlog", "created_at": "<ISO>"}' \
@@ -191,12 +191,12 @@ python -m brain learn-flush
 
 4. **Link to source document**: If the spec URL resolves to a known Document node in Brain:
    ```
-   python -m brain add-edge JiraIssue "<ticket_id>: <title>" Document "<doc_title>" EXTRACTED_FROM
+   python3 -m brain add-edge JiraIssue "<ticket_id>: <title>" Document "<doc_title>" EXTRACTED_FROM
    ```
 
 5. **Link to feature**: If the spec relates to a known Feature:
    ```
-   python -m brain add-edge Feature "<feature>" JiraIssue "<ticket_id>: <title>" HAS_TASK
+   python3 -m brain add-edge Feature "<feature>" JiraIssue "<ticket_id>: <title>" HAS_TASK
    ```
 
 6. **Record to learning pipeline** as a batch.
@@ -234,7 +234,7 @@ python -m brain learn-flush
 
 3. **For each created task**: Persist as JiraIssue node:
    ```
-   python -m brain add-node JiraIssue "<ticket_id>: <title>" \
+   python3 -m brain add-node JiraIssue "<ticket_id>: <title>" \
        -d '{"ticket_id": "<id>", "title": "<title>", "type": "task",
             "assignee": "<assignee>", "source_type": "jira",
             "extraction_method": "meeting-notes", "created_at": "<ISO>"}' \
@@ -243,14 +243,14 @@ python -m brain learn-flush
 
 4. **Create Signal node** for the meeting itself:
    ```
-   python -m brain add-node Signal "meeting: <meeting_title or date>" \
+   python3 -m brain add-node Signal "meeting: <meeting_title or date>" \
        -d '{"source_type": "meeting_notes", "task_count": <N>, "created_at": "<ISO>"}' \
        -p meeting
    ```
 
 5. **Link tasks to meeting signal**:
    ```
-   python -m brain add-edge Signal "meeting: <title>" JiraIssue "<ticket_id>: <title>" HAS_TASK
+   python3 -m brain add-edge Signal "meeting: <title>" JiraIssue "<ticket_id>: <title>" HAS_TASK
    ```
 
 6. **Optional -- Google Tasks sync** for personal action items assigned to the user:
@@ -296,10 +296,10 @@ to produce a triage recommendation.
 Query Brain for related context:
 
 ```
-python -m brain search "<error_or_issue>" --type RiskItem
-python -m brain search "<error_or_issue>" --type Signal
-python -m brain search "<error_or_issue>" --type JiraIssue
-python -m brain context "<error_or_issue>" -c arch -b 2000
+python3 -m brain search "<error_or_issue>" --type RiskItem
+python3 -m brain search "<error_or_issue>" --type Signal
+python3 -m brain search "<error_or_issue>" --type JiraIssue
+python3 -m brain context "<error_or_issue>" -c arch -b 2000
 ```
 
 From results, extract:
@@ -341,7 +341,7 @@ Use the triage rendering template (see Rendering Protocol below).
 If the triage identifies a new bug pattern not already in Brain:
 
 ```
-python -m brain add-node RiskItem "<bug_pattern_title>" \
+python3 -m brain add-node RiskItem "<bug_pattern_title>" \
     -d '{"category": "<domain_pattern>", "severity": "<P0-P3>",
          "description": "<bug description>", "identified_by": ["tickets:triage"],
          "source_type": "triage", "created_at": "<ISO>"}' \
@@ -351,7 +351,7 @@ python -m brain add-node RiskItem "<bug_pattern_title>" \
 If a matching RiskItem already exists, bump its confidence:
 
 ```
-python -m brain add-node RiskItem "<existing_risk_name>" \
+python3 -m brain add-node RiskItem "<existing_risk_name>" \
     -d '{"outcome": "materialized", "materialized_at": "<ISO>",
          "triage_reference": "<error_or_issue>"}'
 ```
@@ -359,7 +359,7 @@ python -m brain add-node RiskItem "<existing_risk_name>" \
 Link to affected feature:
 
 ```
-python -m brain add-edge Feature "<feature>" RiskItem "<risk_name>" HAS_RISK
+python3 -m brain add-edge Feature "<feature>" RiskItem "<risk_name>" HAS_RISK
 ```
 
 Record to learning pipeline and flush.
@@ -378,8 +378,8 @@ Record to learning pipeline and flush.
 
 2. **Cross-reference with Brain**:
    ```
-   python -m brain feature-list --status in_progress
-   python -m brain feature-health "<feature>"
+   python3 -m brain feature-list --status in_progress
+   python3 -m brain feature-health "<feature>"
    ```
    For each active feature, compare:
    - Jira ticket status vs Brain feature health
@@ -399,7 +399,7 @@ Record to learning pipeline and flush.
 
 2. **Cross-reference with Brain**:
    ```
-   python -m brain search "<query>"
+   python3 -m brain search "<query>"
    ```
    For each Atlassian result, check if a corresponding node exists in Brain.
    If it does, annotate the result with Brain context (feature link, confidence, related nodes).
@@ -439,13 +439,13 @@ Record to learning pipeline and flush.
 
 1. **Query Brain for feature health and timeline**:
    ```
-   python -m brain feature-health "<feature>"
-   python -m brain search "<feature>" --type Feature
+   python3 -m brain feature-health "<feature>"
+   python3 -m brain search "<feature>" --type Feature
    ```
 
 2. **Query linked JiraIssue nodes**:
    ```
-   python -m brain search "" --type JiraIssue
+   python3 -m brain search "" --type JiraIssue
    ```
    Filter to tickets linked to this feature via HAS_TASK edges.
 
@@ -454,7 +454,7 @@ Record to learning pipeline and flush.
 
 4. **Query blockers**:
    ```
-   python -m brain search "<feature>" --type RiskItem
+   python3 -m brain search "<feature>" --type RiskItem
    ```
    Filter to RiskItems with `status: "open"` and `severity: P0|P1`.
 
@@ -476,12 +476,12 @@ Record to learning pipeline and flush.
 
 1. **Resolve ticket**: Search for the ticket ID in Brain:
    ```
-   python -m brain search "<ticket_id>" --type JiraIssue
+   python3 -m brain search "<ticket_id>" --type JiraIssue
    ```
 
    If not found, create the JiraIssue node first:
    ```
-   python -m brain add-node JiraIssue "<ticket_id>" \
+   python3 -m brain add-node JiraIssue "<ticket_id>" \
        -d '{"ticket_id": "<ticket_id>", "source_type": "devrev",
             "linked_by_skill": "tickets", "linked_at": "<ISO>"}' \
        -p devrev
@@ -489,12 +489,12 @@ Record to learning pipeline and flush.
 
 2. **Resolve feature**: Verify the feature exists:
    ```
-   python -m brain search "<feature>" --type Feature
+   python3 -m brain search "<feature>" --type Feature
    ```
 
 3. **Create edge**:
    ```
-   python -m brain add-edge Feature "<feature>" JiraIssue "<ticket_id>" HAS_TASK
+   python3 -m brain add-edge Feature "<feature>" JiraIssue "<ticket_id>" HAS_TASK
    ```
 
 4. **Render**:
@@ -516,7 +516,7 @@ Record to learning pipeline and flush.
    - If no flag: query all JiraIssue nodes with `source_type: "devrev"`
 
    ```
-   python -m brain search "" --type JiraIssue
+   python3 -m brain search "" --type JiraIssue
    ```
 
 2. **For each ticket**: Check current status in DevRev.
@@ -525,19 +525,19 @@ Record to learning pipeline and flush.
 
 3. **Compare with Brain state**: For each ticket where DevRev status differs from Brain:
    ```
-   python -m brain add-node JiraIssue "<ticket_id>: <title>" \
+   python3 -m brain add-node JiraIssue "<ticket_id>: <title>" \
        -d '{"status": "<new_status>", "synced_at": "<ISO>", "previous_status": "<old_status>"}'
    ```
 
 4. **Update feature health**: If ticket status changes affect feature completion:
    ```
-   python -m brain add-node Feature "<feature>" \
+   python3 -m brain add-node Feature "<feature>" \
        -d '{"status": "<derived_status>", "synced_at": "<ISO>"}'
    ```
 
 5. **Update sync state**:
    ```
-   python -m brain add-node Signal "sync: devrev <feature> <ISO>" \
+   python3 -m brain add-node Signal "sync: devrev <feature> <ISO>" \
        -d '{"source_type": "devrev", "feature": "<feature>", "slug": "<slug>"}' \
        -p "<slug>"
    ```
@@ -712,7 +712,7 @@ When creating personal action items (items assigned to `saurav.k@razorpay.com`):
 
 3. **Track sync state**: Store the Google Task ID in the JiraIssue node data:
    ```
-   python -m brain add-node JiraIssue "<ticket_id>: <title>" \
+   python3 -m brain add-node JiraIssue "<ticket_id>: <title>" \
        -d '{"google_task_id": "<task_id>", "google_task_synced_at": "<ISO>"}'
    ```
 
@@ -736,11 +736,11 @@ Every `/tickets` interaction persists knowledge back to Brain. This is mandatory
 ### Created tickets
 
 ```
-python -m brain add-node JiraIssue "<id>: <title>" \
+python3 -m brain add-node JiraIssue "<id>: <title>" \
     -d '{"source_type": "devrev", "created_by_skill": "tickets"}' \
     -p "<slug>"
 
-python -m brain add-edge Feature "<feature>" JiraIssue "<id>: <title>" HAS_TASK
+python3 -m brain add-edge Feature "<feature>" JiraIssue "<id>: <title>" HAS_TASK
 ```
 
 ### Triage results
@@ -770,7 +770,7 @@ python -m brain add-edge Feature "<feature>" JiraIssue "<id>: <title>" HAS_TASK
 Every `/tickets` invocation creates a Signal node for audit trail:
 
 ```
-python -m brain add-node Signal "tickets:<command> <target> <date>" \
+python3 -m brain add-node Signal "tickets:<command> <target> <date>" \
     -d '{"source_type": "tickets_interaction", "command": "<command>",
          "target": "<target>", "ticket_count": <N>}' \
     -p tickets
@@ -782,13 +782,13 @@ python -m brain add-node Signal "tickets:<command> <target> <date>" \
 |---|---|---|
 | Atlassian skill unavailable | Skill tool returns error | Fall back to manual workflow: generate ticket content, render as copyable text, ask user to create in DevRev manually. |
 | DevRev unreachable | Browser MCP timeout or navigation failure | Use cached Brain state. Warn: "DevRev unreachable -- showing Brain data only. Sync when available." |
-| Feature not found | `python -m brain search` returns empty for feature | Create the feature first: suggest `python -m brain add-node Feature "<name>"`. Or proceed without feature link. |
+| Feature not found | `python3 -m brain search` returns empty for feature | Create the feature first: suggest `python3 -m brain add-node Feature "<name>"`. Or proceed without feature link. |
 | Ticket ID not found in Brain | `search --type JiraIssue` returns empty | Create the JiraIssue node on the fly (Step 1 of `link` command). |
 | Duplicate triage conflict | Brain says no match, Jira says match (or vice versa) | Present both findings with source attribution. Let user decide: "Brain [no match] vs Jira [similar: TKT-4210]". |
 | Google Tasks API failure | MCP tool error | Skip Google Tasks sync. Warn: "Google Tasks sync failed. Ticket created in Brain only." Continue with remaining pipeline. |
 | Too many tickets (>20) | from-spec or from-meeting generates >20 items | Process first 20, warn: "{total} tickets identified but capped at 20. Run again for remaining." |
 | No Brain context | context-for returns empty, no matching nodes | Proceed without Brain enrichment. Note: "No Brain context for this feature. Description will be minimal." Suggest `/nemesis reverse` or `/nemesis requirements`. |
-| Learning pipeline error | `python -m brain learn-flush` returns non-zero | Warn but don't block. Ticket was created successfully -- persistence failure is non-fatal. Suggest `python -m brain learn-flush` manually. |
+| Learning pipeline error | `python3 -m brain learn-flush` returns non-zero | Warn but don't block. Ticket was created successfully -- persistence failure is non-fatal. Suggest `python3 -m brain learn-flush` manually. |
 
 ## Action Bar
 
@@ -824,8 +824,8 @@ It is the primary consumer of all 5 Atlassian skills.
 
 **Interacts with**:
 - **All 5 Atlassian Skills** -- primary consumer, invokes via Skill tool
-- **Brain** (`python -m brain` / `brain.api`) -- reads feature/requirement/risk context, writes JiraIssue nodes
-- **Learning pipeline** (`python -m brain add-node` + `python -m brain learn-flush`) -- records every ticket interaction
+- **Brain** (`python3 -m brain` / `brain.api`) -- reads feature/requirement/risk context, writes JiraIssue nodes
+- **Learning pipeline** (`python3 -m brain add-node` + `python3 -m brain learn-flush`) -- records every ticket interaction
 - **Google Tasks** (`google-workspace` MCP) -- personal task sync for items assigned to user
 - **`/nemesis`** -- complementary: /nemesis analyzes and extracts knowledge, /tickets converts it to tracked work
 - **`/plan`** -- complementary: /plan manages daily tasks, /tickets manages project-level work items

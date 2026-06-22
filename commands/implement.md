@@ -43,7 +43,7 @@ validated solution.md and translate it into production-ready code changes with c
 tests, quality verification, and a mergeable GitHub PR.
 
 **Your backends:**
-- **Brain API** -- `python -m brain` for context, expert knowledge, learning pipeline
+- **Brain API** -- `python3 -m brain` for context, expert knowledge, learning pipeline
 - **Solution Artifact** -- `workspace/features/<slug>/solution.md` (primary input)
 - **Cloned Repos** -- `workspace/repos/<service>/` (target for code changes)
 - **GitHub CLI** -- `gh` for branch creation, PR management
@@ -82,14 +82,14 @@ ls workspace/features/<slug>/solution.md workspace/features/<slug>/solution.html
 ls workspace/repos/ | head -20
 
 # 3. Load feature context from Brain
-python -m brain search "<feature_name>" --type Feature
-python -m brain context "<feature_name>" -c dev -b 4000
+python3 -m brain search "<feature_name>" --type Feature
+python3 -m brain context "<feature_name>" -c dev -b 4000
 
 # 4. Load testing strategy (from Solutioning step 5.5)
-python -m brain search "testing_strategy:<feature>" --type Signal
+python3 -m brain search "testing_strategy:<feature>" --type Signal
 
 # 5. Load prior dialogue for context
-python -m brain search "dialogue:" --type Signal
+python3 -m brain search "dialogue:" --type Signal
 ```
 
 If solution.md is missing, tell the user: "Solution artifact not found. Run Solutioning first:
@@ -138,7 +138,7 @@ For each service, build a change spec:
 
 Determine service execution order from dependency graph:
 ```bash
-python -m brain search "" --type Project
+python3 -m brain search "" --type Project
 # Check DEPENDS_ON edges to determine order
 # Independent services can be implemented in parallel
 ```
@@ -537,8 +537,8 @@ Resolve the `covers`/`issue` fields against the real Requirement / RiskItem node
 Solutioning so the report references actual feature issues, not invented ones:
 
 ```bash
-python -m brain search "" --type Requirement -p <slug>
-python -m brain search "" --type RiskItem -p <slug>
+python3 -m brain search "" --type Requirement -p <slug>
+python3 -m brain search "" --type RiskItem -p <slug>
 ```
 
 ```json
@@ -592,8 +592,8 @@ LLM assembles a **change manifest** describing the semantic story (what/why/cove
 resolution — none of which a parser can infer), reusing the machine outputs from 6.5e:
 
 ```bash
-python -m brain search "" --type Requirement -p <slug>   # resolve covers/issue against real nodes
-python -m brain search "" --type RiskItem   -p <slug>
+python3 -m brain search "" --type Requirement -p <slug>   # resolve covers/issue against real nodes
+python3 -m brain search "" --type RiskItem   -p <slug>
 ```
 
 ```json
@@ -661,11 +661,11 @@ from Step 6 to Step 7 that bypasses this gate.
 
 Persist the gate result as a Signal node:
 ```bash
-python -m brain add-node Signal "pre_pr_gate:<feature_name>" \
+python3 -m brain add-node Signal "pre_pr_gate:<feature_name>" \
     -d '{"ut_coverage":100,"slit_coverage":100,"tests_passing":<N>,
          "review_p0_open":0,"iterations":<K>,"test_report":"green","status":"green"}' \
     -p <feature_slug>
-python -m brain add-edge Signal "pre_pr_gate:<feature_name>" Feature "<feature_name>" SIGNAL_FOR
+python3 -m brain add-edge Signal "pre_pr_gate:<feature_name>" Feature "<feature_name>" SIGNAL_FOR
 ```
 
 ---
@@ -784,7 +784,7 @@ Check:
 
 Auto-suggest reviewers from Brain ProjectExpert nodes:
 ```bash
-python -m brain search "" --type ProjectExpert
+python3 -m brain search "" --type ProjectExpert
 # Suggest experts for the services being changed
 ```
 
@@ -822,20 +822,20 @@ Store all implementation artifacts in Brain:
 
 ```bash
 # Update Feature node with implementation status
-python -m brain add-node Feature "<feature_name>" \
+python3 -m brain add-node Feature "<feature_name>" \
     -d '{"phase":"implementation_complete","pr_urls":[...],"services_implemented":[...],
          "tests_generated":<N>,"quality_status":"pass"}' \
     -p <feature_slug>
 
 # Store implementation Signal
-python -m brain add-node Signal "implementation:<feature_name>" \
+python3 -m brain add-node Signal "implementation:<feature_name>" \
     -d '{"pr_urls":[...],"services":[...],"tests_count":<N>,
          "quality_gates":"pass","deploy_checklist":"complete"}' \
     -p <feature_slug>
-python -m brain add-edge Signal "implementation:<feature_name>" Feature "<feature_name>" SIGNAL_FOR
+python3 -m brain add-edge Signal "implementation:<feature_name>" Feature "<feature_name>" SIGNAL_FOR
 
 # Flush learning pipeline
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 ### Step 9b — Generate the pipeline report (AI-usage HTML, Argo-style interactive DAG)

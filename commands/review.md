@@ -17,9 +17,9 @@ multiple specialist skills and synthesizes their outputs into actionable review 
 - **`/slash` skill** -- Razorpay codebase context via @Slash bot (invoke via Skill tool; if Skill tool fails to resolve, follow /slash protocol directly: send to channel `C0B3U3Z2JG1` via primary Slack MCP)
 - **Rubick** (workspace/brain.db) -- Requirements, RiskItems, ArchDecisions for feature context
 - **Mermaid MCP** (`mcp__7428c252-36b2-42ac-a44c-91316b71cfda__validate_and_render_mermaid_diagram`) -- change impact diagrams
-- **Brain API** -- `python -m brain` / `brain.api` for search, impact analysis, cross-project refs
-- **Context Engine** -- `python -m brain context` for budget-aware retrieval
-- **Learning Engine** -- `python -m brain add-node` / `python -m brain learn-flush` for persisting review results
+- **Brain API** -- `python3 -m brain` / `brain.api` for search, impact analysis, cross-project refs
+- **Context Engine** -- `python3 -m brain context` for budget-aware retrieval
+- **Learning Engine** -- `python3 -m brain add-node` / `python3 -m brain learn-flush` for persisting review results
 
 **Self-learning**: Every review writes ReviewResult nodes to workspace/brain.db. Requirements validated
 by PRs get confidence bumps (0.7 -> 0.85). Requirements contradicted get disputed (-> 0.5).
@@ -90,14 +90,14 @@ known risks for the feature.
 
 1. Query pre-existing knowledge:
    ```
-   python -m brain context "<feature_or_pr>" -c arch -b 4000
+   python3 -m brain context "<feature_or_pr>" -c arch -b 4000
    ```
 2. Count relevant nodes:
    ```
-   python -m brain search "<feature>" --type Requirement
-   python -m brain search "<feature>" --type RiskItem
-   python -m brain search "<feature>" --type ArchDecision
-   python -m brain search "<feature>" --type ReviewResult
+   python3 -m brain search "<feature>" --type Requirement
+   python3 -m brain search "<feature>" --type RiskItem
+   python3 -m brain search "<feature>" --type ArchDecision
+   python3 -m brain search "<feature>" --type ReviewResult
    ```
 3. Decision logic:
    - If **>= 3 high-confidence nodes** (confidence >= 0.7): use Brain as primary context.
@@ -193,7 +193,7 @@ Use the `pr` rendering template (see Rendering Protocol below).
 **Phase 5 -- Learn**:
 1. Create ReviewResult node:
    ```
-   python -m brain add-node ReviewResult "review:<slug>#<number> <date>" \
+   python3 -m brain add-node ReviewResult "review:<slug>#<number> <date>" \
        -d '{"pr_number": <N>, "repo": "<slug>", "findings_count": <N>,
             "critical": <N>, "high": <N>, "medium": <N>, "low": <N>,
             "requirements_validated": [<names>], "risks_addressed": [<names>],
@@ -202,35 +202,35 @@ Use the `pr` rendering template (see Rendering Protocol below).
    ```
 2. For each Requirement validated by the PR:
    ```
-   python -m brain add-node Requirement "<requirement_name>" \
+   python3 -m brain add-node Requirement "<requirement_name>" \
        -d '{"status": "validated", "validated_by": "PR#<N>", "validated_at": "<ISO>",
             "extraction_method": "<original>", "extracted_at": "<original>", "confidence": 0.85}'
    ```
 3. For each Requirement contradicted by the PR:
    ```
-   python -m brain add-node Requirement "<requirement_name>" \
+   python3 -m brain add-node Requirement "<requirement_name>" \
        -d '{"status": "disputed", "disputed_by": "PR#<N>", "dispute_note": "<reason>",
             "extraction_method": "<original>", "extracted_at": "<original>", "confidence": 0.5}'
    ```
 4. For each RiskItem addressed by the PR:
    ```
-   python -m brain add-node RiskItem "<risk_name>" \
+   python3 -m brain add-node RiskItem "<risk_name>" \
        -d '{"status": "mitigated", "mitigated_by": "PR#<N>", "mitigated_at": "<ISO>", "confidence": 0.85}'
    ```
 5. Create edges:
    ```
-   python -m brain add-edge ReviewResult "review:<slug>#<number> <date>" PR "<slug>#<number>" REVIEWS
+   python3 -m brain add-edge ReviewResult "review:<slug>#<number> <date>" PR "<slug>#<number>" REVIEWS
    ```
 6. Record to learning pipeline:
    ```
-   python -m brain add-node Signal "review_pr:<slug>#<number> <date>" \
+   python3 -m brain add-node Signal "review_pr:<slug>#<number> <date>" \
        -d '{"interaction_type": "review_pr", "source_skill": "review", "project": "<slug>"}' \
        -p "<slug>"
-   python -m brain learn-flush
+   python3 -m brain learn-flush
    ```
 7. Create Signal node for the interaction:
    ```
-   python -m brain add-node Signal "review:pr <slug>#<number> <date>" \
+   python3 -m brain add-node Signal "review:pr <slug>#<number> <date>" \
        -d '{"source_type": "review_interaction", "command": "pr", "target": "<slug>#<number>", "confidence": 0.9}'
    ```
 
@@ -284,7 +284,7 @@ Generate a manager-ready audit report for a feature.
 **Phase 0 -- Brain Check**:
 1. Query full feature context:
    ```
-   python -m brain context "<feature>" -c arch -b 6000
+   python3 -m brain context "<feature>" -c arch -b 6000
    ```
 2. Query Requirements (count + completion status)
 3. Query RiskItems (count + open vs mitigated)
@@ -292,11 +292,11 @@ Generate a manager-ready audit report for a feature.
 5. Query ReviewResult nodes (past reviews for this feature)
 6. Feature health:
    ```
-   python -m brain feature-health "<feature>"
+   python3 -m brain feature-health "<feature>"
    ```
 7. Feature timeline:
    ```
-   python -m brain search "<feature>" --type Feature
+   python3 -m brain search "<feature>" --type Feature
    ```
 
 **Phase 1 -- Gather GitHub data**:
@@ -339,7 +339,7 @@ Use the `audit` rendering template.
 **Phase 5 -- Learn**:
 Create Signal node:
 ```
-python -m brain add-node Signal "review:audit <feature> <date>" \
+python3 -m brain add-node Signal "review:audit <feature> <date>" \
     -d '{"source_type": "review_interaction", "command": "audit", "target": "<feature>", "confidence": 0.9}'
 ```
 
@@ -352,11 +352,11 @@ Bug triage with duplicate detection and remediation suggestions.
 **Phase 0 -- Brain Check**:
 1. Search for related RiskItems:
    ```
-   python -m brain search "<error>" --type RiskItem
+   python3 -m brain search "<error>" --type RiskItem
    ```
 2. Search for related Signals (past incidents, alerts):
    ```
-   python -m brain search "<error>" --type Signal
+   python3 -m brain search "<error>" --type Signal
    ```
 3. If a matching RiskItem exists with status "predicted":
    - Note: "This error matches a predicted risk -- confirming materialization"
@@ -401,7 +401,7 @@ Use the `triage` rendering template.
 **Phase 5 -- Learn**:
 1. If new bug: create RiskItem node:
    ```
-   python -m brain add-node RiskItem "bug:<short_description>" \
+   python3 -m brain add-node RiskItem "bug:<short_description>" \
        -d '{"severity": "<C/H/M/L>", "status": "confirmed", "category": "bug_triage",
             "error_pattern": "<error_keywords>", "identified_by": ["review:triage"],
             "triaged_at": "<ISO>", "confidence": 0.9}' \
@@ -410,10 +410,10 @@ Use the `triage` rendering template.
 2. If existing RiskItem materialized: update with outcome
 3. Record to learning pipeline:
    ```
-   python -m brain add-node Signal "review_triage:<slug> <date>" \
+   python3 -m brain add-node Signal "review_triage:<slug> <date>" \
        -d '{"interaction_type": "review_triage", "source_skill": "review"}' \
        -p "<slug>"
-   python -m brain learn-flush
+   python3 -m brain learn-flush
    ```
 
 ## Command: checklist
@@ -425,15 +425,15 @@ Pre-deploy checklist with Razorpay domain-specific checks.
 **Phase 0 -- Brain Check**:
 1. Query feature requirements:
    ```
-   python -m brain search "<feature>" --type Requirement
+   python3 -m brain search "<feature>" --type Requirement
    ```
 2. Query feature risks:
    ```
-   python -m brain search "<feature>" --type RiskItem
+   python3 -m brain search "<feature>" --type RiskItem
    ```
 3. Query past ReviewResults for this feature:
    ```
-   python -m brain search "<feature>" --type ReviewResult
+   python3 -m brain search "<feature>" --type ReviewResult
    ```
 
 **Phase 1 -- Gather**:
@@ -489,11 +489,11 @@ Security-focused review of a PR or codebase slug.
 **Phase 0 -- Brain Check**:
 1. Query security-related ArchDecisions:
    ```
-   python -m brain search "security auth PCI" --type ArchDecision
+   python3 -m brain search "security auth PCI" --type ArchDecision
    ```
 2. Query security-related RiskItems:
    ```
-   python -m brain search "security auth PCI" --type RiskItem
+   python3 -m brain search "security auth PCI" --type RiskItem
    ```
 
 **Phase 0.5 -- @Slash Context**:
@@ -999,19 +999,19 @@ After rendering data, add 1-2 sentences connecting dots across skills and the Br
 
    Or via CLI:
    ```
-   python -m brain add-node ReviewResult "review:<command> <target> <date>" \
+   python3 -m brain add-node ReviewResult "review:<command> <target> <date>" \
        -d '{"created_by_skill": "review", "created_by_command": "<command>",
             "created_at": "<ISO>", "confidence": 0.85}' \
        -p <slug_if_known>
    ```
 
 3. **Flush to graph**:
-   - For < 5 items: `python -m brain learn-flush`
+   - For < 5 items: `python3 -m brain learn-flush`
    - For >= 5 items: spawn `learn-agent` sub-agent with the interaction_id
 
 4. **Signal node**: Every invocation creates a Signal node:
    ```
-   python -m brain add-node Signal "review:<command> <target> <date>" \
+   python3 -m brain add-node Signal "review:<command> <target> <date>" \
        -d '{"source_type": "review_interaction", "command": "<command>", "target": "<target>", "confidence": 0.9}'
    ```
 
@@ -1039,13 +1039,13 @@ After rendering data, add 1-2 sentences connecting dots across skills and the Br
 | PR not found | `gh pr view` returns error | "PR #{n} not found in razorpay/{slug}. Check the number and repo." |
 | Repo not accessible | `gh` returns 404 | "Cannot access razorpay/{slug}. Verify repo name and permissions." |
 | Skill timeout | Engineering/Atlassian skill times out | Skip that skill's section. Note: "{skill} timed out -- section omitted. Re-run to retry." |
-| Brain empty | `python -m brain context` returns no results | Proceed without Brain context. Note: "No Brain context available. Run `/nemesis bootstrap` or `/nemesis requirements` first for richer reviews." |
+| Brain empty | `python3 -m brain context` returns no results | Proceed without Brain context. Note: "No Brain context available. Run `/nemesis bootstrap` or `/nemesis requirements` first for richer reviews." |
 | No diff | PR has no changed files | "PR #{n} has no changed files. Nothing to review." |
 | @Slash no response | Slash skill returns pending | Proceed without @Slash context. Note: "@Slash pending -- codebase context omitted." |
 | Mermaid render fails | MCP tool returns error | Skip diagram. Note: "Change diagram unavailable. Showing text-only review." |
 | Large diff (> 2000 lines) | Diff exceeds context budget | Chunk by file. Review top-priority files first (based on Brain context). Note: "Large diff -- reviewing {n} highest-impact files. Run again with specific file paths for the rest." |
 | brain.db locked | SQLite WAL lock | Retry after 1s. If persistent: skip Brain write, still render review. |
-| Learning pipeline error | `python -m brain learn-flush` fails | Log warning. Review still renders -- persistence failure doesn't block the user. |
+| Learning pipeline error | `python3 -m brain learn-flush` fails | Log warning. Review still renders -- persistence failure doesn't block the user. |
 
 ## What /review Does NOT Do
 
@@ -1075,12 +1075,12 @@ Razorpay domain checks automatically for payment repos.
 **Interacts with**:
 - **`/slash`** -- queries @Slash for codebase context (via Skill tool)
 - **`/nemesis`** -- complementary: /nemesis analyzes architecture, /review validates implementations
-- **`/brain`** -- reads context via `python -m brain context`, writes ReviewResult nodes via `python -m brain add-node`
+- **`/brain`** -- reads context via `python3 -m brain context`, writes ReviewResult nodes via `python3 -m brain add-node`
 - **`/doc`** -- can invoke `/doc` for exporting audit reports to .docx
 - **Engineering skills** -- `code-review`, `testing-strategy`, `deploy-checklist`
 - **Razorpay skills** -- `compass:razorpay-api-review`
 - **Atlassian skills** -- `triage-issue`, `generate-status-report`
-- **Learning pipeline** (`python -m brain add-node` + `python -m brain learn-flush`) -- records every review for cross-skill reuse
+- **Learning pipeline** (`python3 -m brain add-node` + `python3 -m brain learn-flush`) -- records every review for cross-skill reuse
 - **Mermaid MCP** -- renders change impact diagrams for diff reviews
 
-**Data flow**: PR/diff/feature -> Brain context + @Slash + specialist skills -> synthesized review -> ReviewResult node (workspace/brain.db) -> confidence updates on Requirements/RiskItems -> Learning ledger -> available to all skills via `python -m brain context`
+**Data flow**: PR/diff/feature -> Brain context + @Slash + specialist skills -> synthesized review -> ReviewResult node (workspace/brain.db) -> confidence updates on Requirements/RiskItems -> Learning ledger -> available to all skills via `python3 -m brain context`

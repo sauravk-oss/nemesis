@@ -92,7 +92,7 @@ The @Slash private channel doesn't exist or is inaccessible.
 Before hitting Slack, check for a recent cached answer:
 
 ```
-python -m brain search "<question_keywords>" --type Signal
+python3 -m brain search "<question_keywords>" --type Signal
 ```
 
 **If a cached answer exists from the last 24 hours**: return it immediately using the
@@ -117,7 +117,7 @@ Save the returned `ts` (thread timestamp) — needed for polling.
 
 Record the pending question:
 ```
-python -m brain add-node Signal "<question>" -d '{"status":"pending","source_type":"slash"}' -c 0.5
+python3 -m brain add-node Signal "<question>" -d '{"status":"pending","source_type":"slash"}' -c 0.5
 ```
 
 ### Step 4 — Poll for response (queue-aware)
@@ -161,7 +161,7 @@ Don't wait for Q1 to resolve before checking Q2.
 
 **If response received:**
 ```
-python -m brain add-node Signal "<question>" -d '{"response":"<slash_reply_text>","source_type":"slash","feature":"<feature>"}' -c 0.85
+python3 -m brain add-node Signal "<question>" -d '{"response":"<slash_reply_text>","source_type":"slash","feature":"<feature>"}' -c 0.85
 ```
 
 Or via the Python API from another skill:
@@ -180,8 +180,8 @@ Record remains as pending. Do NOT create a Signal node for unanswered questions.
 
 After storing, flush to the learning pipeline for cross-skill discoverability:
 ```
-python -m brain add-node Signal "slash: <question_summary>" -d '{"source":"slash_bot","question":"<question>","feature":"<feature_slug or _global>","confidence":0.85}'
-python -m brain learn-flush
+python3 -m brain add-node Signal "slash: <question_summary>" -d '{"source":"slash_bot","question":"<question>","feature":"<feature_slug or _global>","confidence":0.85}'
+python3 -m brain learn-flush
 ```
 
 ### Step 7 — Render
@@ -211,9 +211,9 @@ The skill generates discovery questions directly. Typical discovery questions:
 
 5. **Send and poll deep questions** through the same pipeline.
 
-6. **Store all Q&A pairs** via `python -m brain add-node Signal` for each (confidence 0.85).
+6. **Store all Q&A pairs** via `python3 -m brain add-node Signal` for each (confidence 0.85).
 
-7. **Learn** — flush all items to the learning pipeline: `python -m brain learn-flush`.
+7. **Learn** — flush all items to the learning pipeline: `python3 -m brain learn-flush`.
 
 8. **Render** using the `deep` template below.
 
@@ -228,7 +228,7 @@ This requires the secondary Slack MCP which needs explicit user approval:
 ## recall — Show Cached Responses
 
 ```
-python -m brain search "<search_terms>" --type Signal
+python3 -m brain search "<search_terms>" --type Signal
 ```
 
 Or via Python API:
@@ -244,7 +244,7 @@ Render using the `recall` template.
 
 Query Signal nodes with `status: pending` from workspace/brain.db:
 ```
-python -m brain search "pending" --type Signal
+python3 -m brain search "pending" --type Signal
 ```
 
 For each pending question, offer to re-poll the thread.
@@ -269,14 +269,14 @@ mcp__plugin_compass_slack-mcp__slack_search_messages
 
 2. **For each result**: extract the parent message (the question) and @Slash's reply.
 
-3. **Check if already cached**: `python -m brain search "<question_keywords>" --type Signal`
+3. **Check if already cached**: `python3 -m brain search "<question_keywords>" --type Signal`
 
 4. **Store new Q&A pairs**:
 ```
-python -m brain add-node Signal "<parent_message>" -d '{"response":"<slash_reply>","source_type":"slash","thread_ts":"<ts>"}' -c 0.85
+python3 -m brain add-node Signal "<parent_message>" -d '{"response":"<slash_reply>","source_type":"slash","thread_ts":"<ts>"}' -c 0.85
 ```
 
-5. **Learn**: `python -m brain learn-flush`
+5. **Learn**: `python3 -m brain learn-flush`
 
 6. **Render** using the `scan` template.
 
@@ -290,7 +290,7 @@ Searches for discussions about a topic across Slack using the find-discussions p
 3. For each discussion found:
    - Extract key participants, thread summary, timestamp
    - If topic matches a Brain feature: create RELATES_TO edge
-4. Store results via `python -m brain add-node Signal` for cross-skill reuse
+4. Store results via `python3 -m brain add-node Signal` for cross-skill reuse
 5. Render discussion list with Brain context annotations
 
 **Rendering:**
@@ -477,7 +477,7 @@ Scanned {N} messages from @Slash in #{channel}{since_filter}.
 | @Slash no response | 10 polls with no substantive reply from `U0AK4Q67HEY` | Record as pending. Render `ask (pending)` template. Suggest user check back and say "responses are ready" to trigger re-poll. |
 | Secondary MCP rejected | User denies `mcp__a82ca449__*` tool call | Fall back to primary MCP. Log: "Secondary MCP not authorized — using primary only." |
 | Cache miss | `brain search` returns empty | Proceed to live query (Step 2 of ask pipeline). This is normal flow. |
-| `brain` CLI error | `python -m brain` returns non-zero exit | Log warning. If the @Slash response was received, still render it to user — persistence failure doesn't block the answer. |
+| `brain` CLI error | `python3 -m brain` returns non-zero exit | Log warning. If the @Slash response was received, still render it to user — persistence failure doesn't block the answer. |
 | Rate limit | Too many messages sent to channel | Back off. For `deep`: add 10s delay between sends instead of 5s. |
 | Malformed @Slash response | Response text is empty or garbled | Render what was received. Note: "@Slash response may be incomplete. Try rephrasing." |
 
@@ -498,7 +498,7 @@ and feeds the learning pipeline. It is the ONLY authorized way for Nemesis skill
 - **Slack MCP (secondary — user approval required)** — `slack_create_canvas` only, for optional canvas export. Do not use `slack_read_thread` or `slack_search_public_and_private` from secondary MCP.
 - **Slack Skills** — `slack:find-discussions` (invoked via Skill tool for the `find` command)
 - **`brain.api` / `BrainAPI`** — cache layer: `BrainAPI.slash_store()`, `BrainAPI.slash_recall()`. Question formatting and question generation are handled directly in the skill.
-- **Learning pipeline** (`python -m brain add-node` + `python -m brain learn-flush`) — records interactions for cross-skill reuse
+- **Learning pipeline** (`python3 -m brain add-node` + `python3 -m brain learn-flush`) — records interactions for cross-skill reuse
 - **Other skills** — `/nemesis` and `/explain` invoke this skill via the Skill tool for @Slash knowledge. **Note:** Skill tool invocation (`Skill("slash")`) may fail at runtime. If the calling skill cannot resolve the slash skill, it should follow this skill's protocol directly (send to `C0B3U3Z2JG1`, poll, store) as a documented fallback.
 
 **Data flow**: Question → @Slash (via Slack MCP to `C0B3U3Z2JG1`) → Response → Signal node (`workspace/brain.db` via `BrainAPI.slash_store()`) → Learning ledger → Available to all skills via `brain search`

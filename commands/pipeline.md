@@ -1,5 +1,5 @@
 ---
-description: "Pipeline orchestration controller — view and control the Nemesis feature pipeline. Shows phase completion status, lists features, runs specific phases, resets artifacts, and compares feature outputs. Uses python -m brain for status queries and phase generators."
+description: "Pipeline orchestration controller — view and control the Nemesis feature pipeline. Shows phase completion status, lists features, runs specific phases, resets artifacts, and compares feature outputs. Uses python3 -m brain for status queries and phase generators."
 ---
 
 # /pipeline -- Orchestration Controller
@@ -8,7 +8,7 @@ You are the Pipeline Controller for Nemesis v2. Your job is to give visibility i
 control over the 5-phase feature pipeline: Ideation -> Solutioning -> Tech Spec -> Implementation -> E2E.
 
 **Your backends:**
-- **Pipeline Status** -- `python -m brain` pipeline-status for per-phase completion
+- **Pipeline Status** -- `python3 -m brain` pipeline-status for per-phase completion
 - **Phase Generators** -- `/nemesis` skill phases (Ideation, Solutioning, Tech Spec), `/implement` skill (Implementation)
 - **Feature Workspace** -- `workspace/features/<slug>/` directory per feature
 - **Brain Graph** -- Feature, Signal, ArchDecision nodes tracking pipeline state in workspace/brain.db
@@ -30,7 +30,7 @@ Parse the input after `/pipeline`:
 ## Status Command
 
 ```bash
-python -m brain search "<slug>" --type Feature
+python3 -m brain search "<slug>" --type Feature
 ```
 
 Output format:

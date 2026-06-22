@@ -8,8 +8,8 @@ You are the Scenario Creator for Nemesis v2. Your job is to generate comprehensi
 test scenarios from feature pipeline artifacts and Rubick's knowledge graph.
 
 **Your backends:**
-- **Brain Context** -- `python -m brain context` for graph retrieval (uses hybrid BFS+vector+FTS5)
-- **Brain Graph** -- `python -m brain search` for cross-project edges (DEPENDS_ON, CALLS_SERVICE)
+- **Brain Context** -- `python3 -m brain context` for graph retrieval (uses hybrid BFS+vector+FTS5)
+- **Brain Graph** -- `python3 -m brain search` for cross-project edges (DEPENDS_ON, CALLS_SERVICE)
 - **Expert Knowledge** -- `expert_functions` and `expert_tests` tables for per-project test patterns
 - **Feature Artifacts** -- `workspace/features/<slug>/` (overview.html, solution.html, tech-spec.md)
 - **Code Bodies** -- `code_bodies` and `code_fts` for function implementation lookup
@@ -59,7 +59,7 @@ For each untested function:
 Source: DEPENDS_ON and CALLS_SERVICE edges from rubick.db
 
 ```bash
-python -m brain search "<service>" --type ProjectExpert
+python3 -m brain search "<service>" --type ProjectExpert
 ```
 
 For each cross-service call in the solution:
@@ -127,8 +127,8 @@ For each service in the blast radius:
 
 After generating scenarios, persist to Brain:
 ```bash
-python -m brain add-node Signal "scenarios:<slug>" -d '{"scenario_count": N, "categories": {}, "services": [], "source_skill": "scenario"}'
-python -m brain learn-flush
+python3 -m brain add-node Signal "scenarios:<slug>" -d '{"scenario_count": N, "categories": {}, "services": [], "source_skill": "scenario"}'
+python3 -m brain learn-flush
 ```
 
 ## Rules

@@ -226,7 +226,7 @@ def _stats(brain: BrainAPI):
 
 def _health(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain health <project>"); return
+        print("Usage: python3 -m brain health <project>"); return
     r = brain.health(args[0])
     print(json.dumps({"project": r.project, "grade": r.grade, "score": r.score,
                        "metrics": r.metrics, "recommendations": r.recommendations}, indent=2))
@@ -234,7 +234,7 @@ def _health(brain: BrainAPI, args):
 
 def _search(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain search <query> [--type T]"); return
+        print("Usage: python3 -m brain search <query> [--type T]"); return
     query = args[0]
     ntype = _flag(args, "--type")
     results = brain.search(query, ntype=ntype)
@@ -243,7 +243,7 @@ def _search(brain: BrainAPI, args):
 
 def _search_code(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain search-code <query> [-p project]"); return
+        print("Usage: python3 -m brain search-code <query> [-p project]"); return
     results = brain.search_code(args[0], project=_flag(args, "-p"))
     for r in results:
         r.pop("body", None)
@@ -252,7 +252,7 @@ def _search_code(brain: BrainAPI, args):
 
 def _context(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain context <target> [-b budget] [-c consumer]"); return
+        print("Usage: python3 -m brain context <target> [-b budget] [-c consumer]"); return
     budget = int(_flag(args, "-b", "4000"))
     consumer = _flag(args, "-c", "default")
     result = brain.context_for(args[0], budget=budget, consumer=consumer)
@@ -266,7 +266,7 @@ def _context(brain: BrainAPI, args):
 
 def _who_calls(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain who-calls <function> [-d depth]"); return
+        print("Usage: python3 -m brain who-calls <function> [-d depth]"); return
     depth = int(_flag(args, "-d", "5"))
     callers = brain.who_calls(args[0], depth=depth)
     print(json.dumps({"function": args[0], "callers": callers, "count": len(callers)}, indent=2))
@@ -274,7 +274,7 @@ def _who_calls(brain: BrainAPI, args):
 
 def _what_calls(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain what-calls <function> [-d depth]"); return
+        print("Usage: python3 -m brain what-calls <function> [-d depth]"); return
     depth = int(_flag(args, "-d", "5"))
     callees = brain.what_calls(args[0], depth=depth)
     print(json.dumps({"function": args[0], "callees": callees, "count": len(callees)}, indent=2))
@@ -282,14 +282,14 @@ def _what_calls(brain: BrainAPI, args):
 
 def _path(brain: BrainAPI, args):
     if len(args) < 2:
-        print("Usage: python -m brain path <source> <target>"); return
+        print("Usage: python3 -m brain path <source> <target>"); return
     p = brain.path(args[0], args[1])
     print(json.dumps({"source": args[0], "target": args[1], "path": p, "hops": len(p) - 1 if p else -1}, indent=2))
 
 
 def _impact(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain impact <func1,func2,...> [-d depth]"); return
+        print("Usage: python3 -m brain impact <func1,func2,...> [-d depth]"); return
     funcs = args[0].split(",")
     depth = int(_flag(args, "-d", "5"))
     r = brain.impact(funcs, max_depth=depth)
@@ -301,21 +301,21 @@ def _impact(brain: BrainAPI, args):
 
 def _dead_code(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain dead-code <project>"); return
+        print("Usage: python3 -m brain dead-code <project>"); return
     results = brain.dead_code(args[0])
     print(json.dumps({"project": args[0], "count": len(results), "candidates": results[:30]}, indent=2))
 
 
 def _test_gaps(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain test-gaps <project>"); return
+        print("Usage: python3 -m brain test-gaps <project>"); return
     results = brain.test_gap(args[0])
     print(json.dumps({"project": args[0], "count": len(results), "gaps": results[:20]}, indent=2))
 
 
 def _add_node(brain: BrainAPI, args):
     if len(args) < 2:
-        print("Usage: python -m brain add-node <type> <name> [-d JSON] [-p project] [-c confidence]"); return
+        print("Usage: python3 -m brain add-node <type> <name> [-d JSON] [-p project] [-c confidence]"); return
     data = json.loads(_flag(args, "-d", "{}"))
     project = _flag(args, "-p")
     confidence = float(_flag(args, "-c", "0.7"))
@@ -325,28 +325,28 @@ def _add_node(brain: BrainAPI, args):
 
 def _get_node(brain: BrainAPI, args):
     if len(args) < 2:
-        print("Usage: python -m brain get-node <type> <name>"); return
+        print("Usage: python3 -m brain get-node <type> <name>"); return
     node = brain.get_node(args[0], args[1])
     print(json.dumps(node or {"error": "not found"}, indent=2, default=str))
 
 
 def _delete_node(brain: BrainAPI, args):
     if len(args) < 2:
-        print("Usage: python -m brain delete-node <type> <name>"); return
+        print("Usage: python3 -m brain delete-node <type> <name>"); return
     ok = brain.delete_node(args[0], args[1])
     print(json.dumps({"deleted": ok, "type": args[0], "name": args[1]}))
 
 
 def _add_edge(brain: BrainAPI, args):
     if len(args) < 5:
-        print("Usage: python -m brain add-edge <from_type> <from> <to_type> <to> <edge_type>"); return
+        print("Usage: python3 -m brain add-edge <from_type> <from> <to_type> <to> <edge_type>"); return
     brain.add_edge(args[0], args[1], args[2], args[3], args[4])
     print(json.dumps({"ok": True, "edge": f"{args[0]}:{args[1]} --{args[4]}--> {args[2]}:{args[3]}"}))
 
 
 def _feature_create(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain feature-create <name> [--owner O]"); return
+        print("Usage: python3 -m brain feature-create <name> [--owner O]"); return
     owner = _flag(args, "--owner")
     fid = brain.feature_create(args[0], owner=owner)
     print(json.dumps({"id": fid, "name": args[0], "status": "proposed"}))
@@ -354,7 +354,7 @@ def _feature_create(brain: BrainAPI, args):
 
 def _feature_update(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain feature-update <name> --status S"); return
+        print("Usage: python3 -m brain feature-update <name> --status S"); return
     status = _flag(args, "--status")
     ok = brain.feature_update(args[0], status=status)
     print(json.dumps({"updated": ok, "name": args[0], "status": status}))
@@ -369,7 +369,7 @@ def _feature_list(brain: BrainAPI, args):
 
 def _feature_health(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain feature-health <name>"); return
+        print("Usage: python3 -m brain feature-health <name>"); return
     r = brain.feature_health(args[0])
     print(json.dumps(r, indent=2))
 
@@ -386,7 +386,7 @@ def _learn_flush(brain: BrainAPI, args):
 
 def _ingest(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain ingest <source> [--feature F] [--project P] [--max-chars N]")
+        print("Usage: python3 -m brain ingest <source> [--feature F] [--project P] [--max-chars N]")
         return
     source = args[0]
     feature = _flag(args, "--feature")
@@ -416,7 +416,7 @@ def _ingest(brain: BrainAPI, args):
         det = result.get("detection", {})
         print(f"\n[needs_fetch] {result['source_type']}:{result['source_id']} is "
               f"MCP/CLI-backed. The skill layer (Franco) must fetch it, then call:\n"
-              f"  python -m brain ingest-mcp {result['source_type']} "
+              f"  python3 -m brain ingest-mcp {result['source_type']} "
               f"'{result['source_id']}' --payload <file.json>"
               + (f" --feature {feature}" if feature else "")
               + (f" --project {project}" if project else ""))
@@ -424,7 +424,7 @@ def _ingest(brain: BrainAPI, args):
 
 def _ingest_mcp(brain: BrainAPI, args):
     if len(args) < 2:
-        print("Usage: python -m brain ingest-mcp <source_type> <source_id> "
+        print("Usage: python3 -m brain ingest-mcp <source_type> <source_id> "
               "--payload FILE [--feature F] [--project P] [--max-chars N]")
         return
     source_type, source_id = args[0], args[1]
@@ -593,10 +593,10 @@ def _doctor(brain: BrainAPI):
                            f"{nodes:,} nodes / {edges:,} edges / {svcs} services", ""))
         else:
             checks.append(("brain.db", "WARN", "reachable but empty",
-                           "run: python -m brain init"))
+                           "run: python3 -m brain init"))
     except Exception as exc:
         checks.append(("brain.db", "FAIL", f"unreachable: {exc}",
-                       f"check {brain._config.db_path}; run: python -m brain init"))
+                       f"check {brain._config.db_path}; run: python3 -m brain init"))
 
     # 3. Data sources registered vs config
     try:
@@ -607,7 +607,7 @@ def _doctor(brain: BrainAPI):
         if registered < configured:
             checks.append(("Data sources", "WARN",
                            f"{registered} registered / {configured} configured",
-                           "run: python -m brain register-sources"))
+                           "run: python3 -m brain register-sources"))
         else:
             checks.append(("Data sources", "OK",
                            f"{registered} registered / {configured} configured", ""))
@@ -619,7 +619,7 @@ def _doctor(brain: BrainAPI):
     experts, seed_n = nt.get("ProjectExpert", 0), len(SEED_PROJECTS)
     if experts < seed_n:
         checks.append(("Experts", "WARN", f"{experts} / {seed_n} projects",
-                       "run: python -m brain init-experts --level 1"))
+                       "run: python3 -m brain init-experts --level 1"))
     else:
         checks.append(("Experts", "OK", f"{experts} / {seed_n} projects", ""))
 
@@ -725,7 +725,7 @@ def _probe_mcps():
 
 def _migrate(brain: BrainAPI, args):
     if not args:
-        print("Usage: python -m brain migrate-rubick <rubick_db_path>"); return
+        print("Usage: python3 -m brain migrate-rubick <rubick_db_path>"); return
     from brain.migration.migrate import migrate_rubick
     report = migrate_rubick(args[0], brain)
     print(json.dumps(report, indent=2, default=str))

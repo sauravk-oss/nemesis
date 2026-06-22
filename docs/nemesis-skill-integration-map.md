@@ -25,8 +25,8 @@
 **No Razorpay skills** — uses internal Brain API only
 
 ```bash
-python -m brain context "<feature>" -c arch -b 4000
-python -m brain search "<feature>"
+python3 -m brain context "<feature>" -c arch -b 4000
+python3 -m brain search "<feature>"
 ```
 
 ---

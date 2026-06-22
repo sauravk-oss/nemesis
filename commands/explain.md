@@ -103,7 +103,7 @@ If the file doesn't exist, note it as missing and continue with available docs.
 
 Enrich with Rubick knowledge:
 ```
-python -m brain context "<question keywords>" -c arch -b 4000
+python3 -m brain context "<question keywords>" -c arch -b 4000
 ```
 
 This surfaces:
@@ -178,13 +178,13 @@ brain.flush()
 
 Or via CLI:
 ```
-python -m brain add-node UseCase "<scenario title>" \
+python3 -m brain add-node UseCase "<scenario title>" \
     -d '{"actor": "merchant|customer|system", "steps": [], "source_doc": "step{N}"}' \
     -p _global
-python -m brain add-node BusinessLogic "<rule title>" \
+python3 -m brain add-node BusinessLogic "<rule title>" \
     -d '{"description": "...", "domain": "payments|emandate|offers"}' \
     -p _global
-python -m brain learn-flush
+python3 -m brain learn-flush
 ```
 
 Extract from every answer:
@@ -386,7 +386,7 @@ Check which explainer docs exist:
 For each path in `brain.config.EXPLAINER_DOCS`:
 - Use Read tool to check if file exists
 - Count lines and get last modified date if it exists
-- Also query Brain: `python -m brain search "step" --type UseCase`
+- Also query Brain: `python3 -m brain search "step" --type UseCase`
 
 ### Search (`/explain search <query>`)
 
@@ -414,8 +414,8 @@ For each path in `brain.config.EXPLAINER_DOCS`:
 Steps:
 1. For each available doc: Read and search for query (case-insensitive)
 2. Extract 1-2 lines of context around each match
-3. Query Brain: `python -m brain search "<query>"`
-4. Also: `python -m brain search "<query>" --type UseCase`
+3. Query Brain: `python3 -m brain search "<query>"`
+4. Also: `python3 -m brain search "<query>" --type UseCase`
 5. Merge results and render
 
 ## Error Handling
@@ -424,7 +424,7 @@ Steps:
 |---|---|---|
 | Doc file missing | Read tool returns error | Warn: "Step {N} doc not available. Answering from Brain context only." Continue with available sources. |
 | All docs missing | None of the EXPLAINER_DOCS paths exist | Answer from Brain only. If Brain also empty: "No knowledge available. Run `/nemesis reverse` on the relevant repo first, or provide context." |
-| Brain empty/down | `python -m brain context` returns empty or errors | Answer from docs only. Note: "Brain context unavailable — answer based on explainer docs only." |
+| Brain empty/down | `python3 -m brain context` returns empty or errors | Answer from docs only. Note: "Brain context unavailable — answer based on explainer docs only." |
 | @Slash timeout | Slash Skill returns pending | Don't block. Note: "@Slash query pending — answer based on docs + Brain." |
 | Doc Skill failure | `rubick_doc.py` errors | Return the text answer without .docx. Note: "Document generation failed. Here's the answer in text." |
 | Question too broad | Maps to ALL steps | Read all available docs but focus answer on the high-level flow. Suggest: "For deeper detail, try `/explain step {N}`." |
@@ -447,7 +447,7 @@ enriched by Brain knowledge and @Slash intelligence. It reads docs, synthesizes 
 - `/slash` — queries @Slash for live Razorpay codebase knowledge when docs + Brain are insufficient
 - `/doc` — generates .docx documents from answers (via Skill tool)
 - `/nemesis` — complementary: /nemesis analyzes code structure, /explain answers flow questions
-- Brain (`python -m brain context`, `python -m brain search`) — reads context, writes UseCase/BusinessLogic nodes
-- Learning pipeline (`python -m brain add-node` + `python -m brain learn-flush`) — records and flushes extracted knowledge after every answer
+- Brain (`python3 -m brain context`, `python3 -m brain search`) — reads context, writes UseCase/BusinessLogic nodes
+- Learning pipeline (`python3 -m brain add-node` + `python3 -m brain learn-flush`) — records and flushes extracted knowledge after every answer
 
 **Source priority**: Explainer docs (curated, high confidence) > Brain nodes (validated knowledge) > @Slash (live but unvalidated). If sources conflict, prefer docs and flag the discrepancy.
