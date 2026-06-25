@@ -898,13 +898,6 @@ an independent Claude Code session with its own system prompt.
 | `e2e-writer-agent` | E2E | 1 per test suite | Scaffolds ITF test suite in razorpay/end-to-end-tests from existing patterns |
 | `e2e-expert-agent` | E2E | 1 | E2E test design specialist — coverage gaps, generation, repair |
 | `learn-agent` | Brain | 1 per flush batch | Batch knowledge flush for 5+ learning items without blocking main session |
-| `scout-agent` | Nemesis (pre-Ideation) | 1 | Deep codebase reconnaissance — endpoints, data paths, Splitz gates, cross-service contracts |
-
-**Scout Agent** is notable: it runs BEFORE Phase 1 Ideation on complex features where
-the solution space is unclear. It performs end-to-end reconnaissance of the problem space
-and surfaces routing patterns, shared utilities, and cross-service contracts that Ideation
-then uses as pre-loaded context. This avoids the Ideation phase needing to do expensive
-grep-and-explore on its own.
 
 ---
 
@@ -914,7 +907,7 @@ grep-and-explore on its own.
 
 **Claude Sonnet** is the primary model for all skill execution. Nemesis skills are
 loaded as system prompts in Claude Code — the model powering them is whatever model
-the user has selected in their Claude Code session (typically Claude Sonnet 4.6 or 4.8).
+the user has selected in their Claude Code session (typically Claude Sonnet).
 
 No model version is hardcoded in the Python codebase (`brain/`). The Python layer
 is model-agnostic — it only handles storage, retrieval, and algorithms.
