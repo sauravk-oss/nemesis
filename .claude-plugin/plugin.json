@@ -88,6 +88,16 @@
       "name": "e2e",
       "description": "E2E testing orchestrator for the Nemesis v2 feature pipeline (Phase 4). Automated test generation, execution via e2e-test-orchestrator or ROAST, and coverage review. Enriches Rubick with TestResult nodes.",
       "source": "commands/e2e.md"
+    },
+    {
+      "name": "devtest",
+      "description": "Interactive live S2S E2E debug testing orchestrator. Analyses PRs, updates helmfile, deploys to devstack, builds the full merchant→payment→callback→capture chain from the end-to-end-tests ITF repo, fires curls with per-step human confirmation, captures pod logs, and generates a Brain-powered devtest report.",
+      "source": "commands/devtest.md"
+    },
+    {
+      "name": "implement",
+      "description": "Implementation engine — Phase 4 of the Nemesis pipeline. Takes solution.md and generates code changes, unit tests, SLIT tests, runs quality gates (go fmt/vet/test, eslint, php lint), and creates mergeable GitHub PRs. Supports Go, PHP, TypeScript. Spawns per-service implement-agent and test-gen-agent for parallel execution.",
+      "source": "commands/implement.md"
     }
   ],
   "skills": [
@@ -137,6 +147,41 @@
       "name": "standup-agent",
       "description": "Parallel standup data collection sub-agent — gathers Slack, Calendar, GitHub, Brain data concurrently for daily standups and weekly reports.",
       "source": "agents/standup-agent.md"
+    },
+    {
+      "name": "devtest-runner-agent",
+      "description": "Executes ONE server-to-server test scenario against a deployed devstack: renders each HTTP call as a curl, requests human confirmation per step, fires it, saves request/response as reusable assets, and reports pass/fail with log references.",
+      "source": "agents/devtest-runner-agent.md"
+    },
+    {
+      "name": "devtest-observer-agent",
+      "description": "Watches a SINGLE Kubernetes pod during devtest, captures all log lines to disk, classifies lines by trace code, and returns a structured log summary with ERROR/WARN/INFO breakdown.",
+      "source": "agents/devtest-observer-agent.md"
+    },
+    {
+      "name": "e2e-argo-agent",
+      "description": "Drives the Argo pipeline for ONE e2e PR: triggers the run via PR comment or Twirp API, polls for completion, captures test results, and returns pass/fail with Argo run URL.",
+      "source": "agents/e2e-argo-agent.md"
+    },
+    {
+      "name": "e2e-writer-agent",
+      "description": "Scaffolds ONE permanent ITF test suite inside razorpay/end-to-end-tests from a pattern extracted from an existing analog suite. Writes Go test files matching repo conventions.",
+      "source": "agents/e2e-writer-agent.md"
+    },
+    {
+      "name": "implement-agent",
+      "description": "Per-service code generation sub-agent for the Implementation phase. Handles code changes and tests for a SINGLE service — reads solution.md, makes diffs, runs quality gates, stages for PR.",
+      "source": "agents/implement-agent.md"
+    },
+    {
+      "name": "scout-agent",
+      "description": "Deep codebase reconnaissance agent. Performs end-to-end analysis of a feature's problem space BEFORE Ideation or Solutioning, surfacing endpoints, data paths, Splitz gates, and cross-service contracts.",
+      "source": "agents/scout-agent.md"
+    },
+    {
+      "name": "test-gen-agent",
+      "description": "Automated test creation sub-agent for the Implementation phase. Generates comprehensive unit tests and SLIT tests for code changes produced by implement-agent, matching existing test patterns per service.",
+      "source": "agents/test-gen-agent.md"
     }
   ]
 }

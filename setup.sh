@@ -2,8 +2,10 @@
 # ============================================================================
 # Nemesis v2 — setup & health-check script
 #
-#   ./setup.sh           Full idempotent setup (installs deps, runs brain init)
-#   ./setup.sh --check    Read-only diagnostics — no installs, no writes
+#   ./setup.sh                 Full idempotent setup (installs deps, runs brain init)
+#   ./setup.sh --check         Read-only diagnostics — no installs, no writes
+#   ./setup.sh --with-vectors  Also install LanceDB + sentence-transformers
+#                              (enables semantic similarity in context_for)
 #
 # --check is consumed by  /nemesis init  (Phase A)  and  /nemesis doctor .
 # It NEVER installs, NEVER writes tokens, NEVER touches brain.db.
@@ -19,13 +21,17 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
 CHECK_ONLY=0
+WITH_VECTORS=0
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK_ONLY=1 ;;
+    --with-vectors) WITH_VECTORS=1 ;;
     -h|--help)
       grep -E '^#( |$)' "$0" | sed -E 's/^# ?//' | head -20
+      echo ""
+      echo "  --with-vectors    Also install LanceDB + sentence-transformers"
       exit 0 ;;
-    *) echo "Unknown argument: $arg (use --check or --help)"; exit 2 ;;
+    *) echo "Unknown argument: $arg (use --check, --with-vectors, or --help)"; exit 2 ;;
   esac
 done
 
@@ -65,31 +71,60 @@ fi
 
 # ---- 2. Python dependencies ------------------------------------------------
 hdr "2. Python dependencies"
-# networkx is the only hard requirement for the brain CLI.
-if "$PY" -c 'import networkx' >/dev/null 2>&1; then
-  ok "networkx importable (brain core)"
-else
-  if [ "$CHECK_ONLY" -eq 1 ]; then
-    fail "networkx missing — run ./setup.sh (without --check) to install"
+
+# pip_install: try plain first; fall back to --break-system-packages on macOS
+# where the system Python rejects installs without that flag.
+pip_install() {
+  if "$PY" -m pip install "$@" --quiet 2>/dev/null; then return 0; fi
+  if [[ "$(uname)" == "Darwin" ]]; then
+    "$PY" -m pip install "$@" --quiet --break-system-packages 2>/dev/null && return 0
+  fi
+  # last resort: verbose so the user sees the error
+  "$PY" -m pip install "$@"
+}
+
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  if "$PY" -c 'import networkx' >/dev/null 2>&1; then
+    ok "networkx importable (brain core)"
   else
-    info "Installing requirements.txt ..."
-    if "$PY" -m pip install -r requirements.txt; then
-      if "$PY" -c 'import networkx' >/dev/null 2>&1; then
-        ok "networkx installed"
-      else
-        fail "pip install completed but networkx still not importable"
-      fi
+    fail "networkx missing — run ./setup.sh (without --check) to install"
+  fi
+else
+  # Always ensure networkx first — it is the only hard requirement.
+  if "$PY" -c 'import networkx' >/dev/null 2>&1; then
+    ok "networkx importable (brain core)"
+  else
+    info "Installing networkx ..."
+    if pip_install networkx; then
+      ok "networkx installed"
     else
-      fail "pip install -r requirements.txt failed"
+      fail "Could not install networkx — see output above"
+    fi
+  fi
+  # Install the full requirements.txt (idempotent).
+  info "Installing requirements.txt ..."
+  if pip_install -r requirements.txt; then
+    ok "requirements.txt installed"
+  else
+    fail "pip install -r requirements.txt failed"
+  fi
+  # Optional vectors.
+  if [ "$WITH_VECTORS" -eq 1 ]; then
+    info "Installing requirements-vectors.txt (--with-vectors) ..."
+    if pip_install -r requirements-vectors.txt; then
+      ok "vector deps installed (lancedb + sentence-transformers)"
+    else
+      warn "vector deps install failed — brain falls back to graph + FTS5"
     fi
   fi
 fi
-# Optional vector-search deps (lazy-loaded) — informational only.
+
+# Report vector-search status regardless of how we got here.
 if "$PY" -c 'import lancedb, sentence_transformers' >/dev/null 2>&1; then
   ok "vector search available (lancedb + sentence-transformers)"
 else
   warn "vector search not installed (optional) — graph + FTS5 retrieval still work"
-  info "enable with: pip install lancedb sentence-transformers"
+  info "enable with: ./setup.sh --with-vectors"
 fi
 
 # ---- 3. GitHub CLI ---------------------------------------------------------

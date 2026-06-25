@@ -1,0 +1,17 @@
+# ============================================================================
+# Nemesis v2 — Optional vector search dependencies
+#
+# Enables semantic similarity search in brain.context_for() (the third channel
+# in 3-channel hybrid retrieval: graph walk + FTS5 + vector).
+# Without this, the brain degrades gracefully to graph + FTS5 only.
+#
+# Install:
+#   pip install -r requirements.txt -r requirements-vectors.txt
+#   or: ./setup.sh --with-vectors
+#
+# Disk: ~500 MB (sentence-transformers model download on first use)
+# RAM:  ~50-200 MB (mmap-loaded on first semantic_search() call)
+# ============================================================================
+
+lancedb>=0.4
+sentence-transformers>=3.0

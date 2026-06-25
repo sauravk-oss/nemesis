@@ -2,6 +2,11 @@
 
 An AI-powered multi-skill system for software engineering at scale. Nemesis absorbs knowledge from every source (Slack, Gmail, GitHub, Calendar, Drive, code) and stores it in a unified knowledge graph — like IntelliJ's project index, but persistent, cross-service, and enriched with human knowledge.
 
+> **Looking for internals?** See [docs/NEMESIS-INTERNALS.md](docs/NEMESIS-INTERNALS.md) for the full technical deep-dive:
+> storage stack, design decisions, what was evaluated and rejected (Qdrant → LanceDB,
+> Redis → NetworkX in-memory, Neo4j → SQLite, BFS-only → 3-channel hybrid), models used,
+> the Franco two-phase pattern, and per-phase pipeline details.
+
 ## What It Does
 
 Nemesis is a **5-phase feature pipeline** powered by a **Living Index Brain**:
@@ -158,6 +163,10 @@ teammate rebuilds it locally from the pulled artifacts:
 ### Agents (15 sub-agents)
 
 Parallel sub-agents for heavy-lift work: code review, implementation, test generation, data ingestion, standup collection, E2E authoring/argo, project experts, etc.
+
+> **Deep architecture**: [docs/NEMESIS-INTERNALS.md](docs/NEMESIS-INTERNALS.md) covers
+> every layer with exact class names, method signatures, and the rationale behind each
+> design choice.
 
 ## Brain CLI
 
