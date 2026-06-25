@@ -17,7 +17,7 @@
 7. [Context Budget Engine](#7-context-budget-engine)
 8. [The 5-Phase Feature Pipeline](#8-the-5-phase-feature-pipeline)
 9. [Project Expert System](#9-project-expert-system)
-10. [Skill Architecture](#10-skill-architecture)
+10. [Skill Architecture & Superpowers](#10-skill-architecture--superpowers) — native skills, Razorpay Compass superpowers, all MCPs
 11. [Models and Embedding Stack](#11-models-and-embedding-stack)
 12. [Design Decisions — What Was Evaluated and Rejected](#12-design-decisions--what-was-evaluated-and-rejected)
 13. [Graph Schema — Node and Edge Types](#13-graph-schema--node-and-edge-types)
@@ -233,16 +233,6 @@ matches, the source is skipped. This makes `/nemesis init` safe to run multiple 
 | Code extraction | Graphify (tree-sitter, 36 langs) | Production-grade AST, handles Go receivers, PHP namespaces, TS generics |
 | MCP access | Claude Code MCP layer (LLM only) | Slack, Drive, Gmail, Calendar, Canva — OAuth managed by Claude Code |
 
-### What's NOT Used (and why)
-
-See Section 12 for full details. Short version:
-- No Redis / Memcache — SQLite WAL + NetworkX in-memory IS the cache
-- No Neo4j / graph database — SQLite + NetworkX does everything at this scale with zero infra
-- No Qdrant server — replaced by LanceDB (simpler, no process, lazy-loaded)
-- No Flask/FastAPI web server — Claude Code is a CLI; a web server adds nothing
-- No custom AST parsers — replaced by Graphify (tree-sitter handles edge cases correctly)
-
----
 
 ## 6. The Franco Two-Phase Pattern
 
@@ -494,67 +484,427 @@ ProjectExpert nodes store a JSON `expertise` blob:
 
 ---
 
-## 10. Skill Architecture
+## 10. Skill Architecture & Superpowers
 
-Nemesis has 19 skills, all defined as markdown files in `commands/`. Each skill is
-a system prompt loaded into Claude Code as a slash command.
+Nemesis is a two-tier skill system:
 
-```
-commands/
-├── nemesis.md      # Orchestrator (phases, intent detection, dashboard)
-├── brain.md        # Knowledge graph operations CLI wrapper
-├── franco.md       # Universal data collector
-├── review.md       # Multi-skill code review pipeline
-├── devtest.md      # Live S2S E2E test runner
-├── standup.md      # Daily standup + reports
-├── implement.md    # Code generation + PR
-├── explain.md      # Payment flow explainer
-├── diagram.md      # Architecture diagrams (Canva → Mermaid → Excalidraw)
-├── designer.md     # Full visual design workflow
-├── silencer.md     # Google Doc tech spec generator
-├── doc.md          # .docx generation (python-docx)
-├── slash.md        # @Slash bot interaction
-├── plan.md         # Feature planning
-├── tickets.md      # DevRev/Jira ticket management
-├── db-validator.md # Payment state + pre-deploy validation
-├── scenario.md     # Test scenario generator
-├── pipeline.md     # Pipeline orchestration controller
-└── devtest.md      # Interactive E2E debug testing orchestrator
-```
+1. **Nemesis-native skills** — 19 markdown command files in `commands/`, registered in
+   `.claude-plugin/plugin.json`. These are the primary user-facing slash commands.
 
-### Skill Invocation Chain
+2. **Razorpay Compass ecosystem skills** — External skills from the Razorpay engineering
+   Compass platform. These are Claude Code skills that encode Razorpay-specific domain
+   knowledge (API contracts, testing standards, deploy protocols, product processes).
+   Invoked via `Skill("skill-name", "context")` within Nemesis phases.
 
-Skills invoke each other via the `Skill` tool. If resolution fails at runtime,
-each skill documents a fallback protocol (direct MCP calls, CLI commands).
+The superpower of the combined system is that Nemesis phases **orchestrate** the Compass
+skills — it provides the codebase context (from the Brain) and the Compass skills provide
+the Razorpay-specific expertise that no general LLM can replicate.
+
+---
+
+### 10.1 Nemesis-Native Skills (19 commands)
+
+| Skill | File | Role | Key MCPs Used |
+|-------|------|------|---------------|
+| `/nemesis` | `commands/nemesis.md` | Orchestrator — routes intent to phases, runs 5-phase pipeline | All |
+| `/brain` | `commands/brain.md` | Knowledge graph CLI wrapper — search, context, stats, ingest | — |
+| `/franco` | `commands/franco.md` | Universal data collector — any URL/ID/path → brain.db | Slack, Drive, Gmail, GitHub, Calendar, Figma |
+| `/slash` | `commands/slash.md` | @Slash Razorpay bot interaction — queue-aware polling, store | Slack primary MCP |
+| `/review` | `commands/review.md` | Multi-skill code review pipeline — PR, diff, audit, triage, security | GitHub CLI, Slack |
+| `/devtest` | `commands/devtest.md` | Interactive live S2S E2E testing — deploy to devstack, per-curl confirmation | E2E Orchestrator, Kubernetes, Slack |
+| `/implement` | `commands/implement.md` | Phase 4 — code gen, tests, quality gates, GitHub PR | GitHub CLI |
+| `/standup` | `commands/standup.md` | Daily standup, weekly reports, meeting prep | Slack, Calendar, Google Workspace |
+| `/explain` | `commands/explain.md` | Payment flow explainer — step0-5 docs + Brain context | Google Workspace (Docs) |
+| `/diagram` | `commands/diagram.md` | Architecture diagrams — flow, arch, entity, impact, timeline | Canva (primary), Mermaid, Excalidraw |
+| `/designer` | `commands/designer.md` | Full visual design workflow — iterative, Figma import, mockups | Canva, Figma, Mermaid, Excalidraw, Blade |
+| `/silencer` | `commands/silencer.md` | Google Doc tech spec generator (15-section Razorpay format) | Google Workspace (Docs) |
+| `/doc` | `commands/doc.md` | .docx generation locally via python-docx — no Drive upload | Word MCP (optional) |
+| `/plan` | `commands/plan.md` | Interactive daily planner, task manager | Google Workspace (Tasks), Calendar |
+| `/tickets` | `commands/tickets.md` | DevRev/Jira ticket management — create, triage, sync | Atlassian skill, DevRev CLI |
+| `/db-validator` | `commands/db-validator.md` | Pre-deploy + payment state validation — 3-layer check | Watchtower MCP, Slack (Coralogix via @Slash) |
+| `/scenario` | `commands/scenario.md` | Test scenario generator from feature context | — |
+| `/pipeline` | `commands/pipeline.md` | Pipeline orchestration controller — phase status, control | — |
+| `/e2e` | `commands/e2e.md` | E2E Phase 5 — automated test generation + execution + coverage | E2E Orchestrator, Kubernetes |
+
+---
+
+### 10.2 Razorpay Compass Ecosystem Skills (Superpowers)
+
+These are Razorpay-internal Compass platform skills. They encode engineering standards,
+domain rules, and processes that would otherwise require tribal knowledge or manual policy
+documents. Nemesis invokes them at specific pipeline phases to get Razorpay-native validation.
+
+**Why these matter**: A generic LLM doesn't know Razorpay's idempotency requirements,
+mandate lifecycle rules, API contract standards, SLIT test patterns, or deploy gate
+protocols. These skills encode exactly that knowledge. They are the difference between
+"generic code review" and "Razorpay-domain-aware code review."
+
+#### Product Management Skills
+
+| Skill | Called By | Phase | What It Does |
+|-------|-----------|-------|--------------|
+| `product-management:brainstorm` | `/nemesis` Ideation | Phase 1 | Structured product ideation — user stories, acceptance criteria, market framing, PRD outline. Takes raw feature brief + Brain context. |
+| `product-management:write-spec` | `/nemesis` Ideation, `/tickets` | Phase 1, Tickets | Generates structured product requirements spec. Takes brainstorm output → formalizes into PRD sections. |
+
+#### Compass Strategy Skills
+
+| Skill | Called By | Phase | What It Does |
+|-------|-----------|-------|--------------|
+| `compass:reviewing-strategy` | `/nemesis` Ideation + Solutioning | Phase 1 + 2 | Validates technical approach against Razorpay engineering strategy. Checks alignment with platform direction, scalability expectations, and org conventions. Called both before and after solutioning to catch strategic misalignment early. |
+| `compass:razorpay-api-review` | `/review`, `/nemesis` Solutioning | Phase 2, Review | Razorpay-specific API contract review: idempotency keys, PCI data handling, response envelope standards, error code conventions, RBI mandate compliance. Catches API issues that generic code review misses. |
+
+#### Engineering Skills
+
+| Skill | Called By | Phase | What It Does |
+|-------|-----------|-------|--------------|
+| `engineering:system-design` | `/nemesis` Solutioning | Phase 2 | System design validation — data flow, failure modes, capacity planning, observability requirements, API contract design. Invoked after initial solution design to stress-test the architecture. |
+| `engineering:architecture` | `/nemesis` Solutioning | Phase 2 | Architecture review — service decomposition, dependency graph analysis, coupling assessment, protocol choices. |
+| `engineering:code-review` | `/review`, `/nemesis` Solutioning + Impl | Phase 2 + 4, Review | Code review with Razorpay conventions — Go idioms, error handling patterns, context propagation, Splitz gate usage, idempotency patterns. Applied on proposed changes (early) AND generated code (final). |
+| `engineering:testing-strategy` | `/nemesis` Solutioning + Impl, `/review` | Phase 2 + 4, Review | Test strategy definition — unit test coverage targets, integration test scope, SLIT test candidates, load test thresholds. Informs what `quality-engineer` and `slit-generator-v2` generate. |
+| `engineering:deploy-checklist` | `/nemesis` Implementation, `/review` | Phase 4, Review | Deploy readiness checklist — Splitz flags configured, DCS values set, DB migrations ready, rollback plan documented, observability alarms live. Mandatory before any PR targets main. |
+| `engineering:documentation` | `/nemesis` Tech Spec | Phase 3 | Documentation standards — Swagger/OpenAPI requirements, runbook completeness, changelog entries. |
+| `engineering:tech-debt` | `/review` audit | Review | Tech debt surface analysis — identifies areas of poor test coverage, deprecated patterns, missing error handling. |
+
+#### Risk and Quality Skills
+
+| Skill | Called By | Phase | What It Does |
+|-------|-----------|-------|--------------|
+| `pre-mortem` | `/nemesis` Solutioning, `/review` | Phase 2, Review | Formal pre-mortem risk analysis — RPN scoring (Severity × Probability × Detectability). Structured failure mode discovery: "assume this change failed in production — what went wrong?". RPN > 200 requires mitigation, RPN > 500 blocks deployment. Integrated into Solutioning output. |
+| `quality-engineer` | `/nemesis` Implementation, E2E | Phase 4 + 5 | Test generation + quality gate assessment. Takes changed functions + test strategy Signal → generates unit tests. Repairs failing quality gates (go vet, golangci-lint, eslint). Closes coverage gaps identified by E2E. |
+| `gatekeeper` | `/nemesis` Implementation | Phase 4 | PR merge criteria enforcement. Verifies: all quality gates passed, test coverage delta positive, no unresolved review comments, deploy checklist complete, reviewer approval obtained. Blocks merge if any criterion fails. |
+| `slit-generator-v2` | `/nemesis` Implementation | Phase 4 | **Go-only.** SLIT (Service-Level Integration Test) auto-generation. Takes service flow + changed packages + dependency mock requirements → generates `.slit_test.go` files matching Razorpay's ITF test patterns. Critical for payment services where unit tests are insufficient. |
+| `tech-spec-generator` | `/nemesis` Tech Spec | Phase 3 | Validates Tech Spec against Razorpay's 15-section template. Checks section completeness, NFR coverage, and test strategy inclusion. Used as a fact-checker before finalizing the spec. |
+
+#### Atlassian Skills (Tickets & Knowledge)
+
+| Skill | Called By | Phase | What It Does |
+|-------|-----------|-------|--------------|
+| `atlassian:spec-to-backlog` | `/tickets` | Tickets | Converts a tech spec or feature brief into a structured Jira/DevRev backlog — epics, stories, sub-tasks with estimates. |
+| `atlassian:triage-issue` | `/tickets`, `/review` | Tickets, Review | Triages an incoming bug or support ticket — assigns priority, suggests owner, identifies which service is responsible, drafts initial investigation steps. |
+| `atlassian:generate-status-report` | `/tickets`, `/standup` | Tickets, Standup | Generates a milestone status report from ticket data — completed, in-progress, blocked, velocity trends. |
+| `atlassian:capture-tasks-from-meeting-notes` | `/tickets` | Tickets | Extracts action items from meeting notes → creates Jira/DevRev tasks with assignees and due dates. |
+| `atlassian:search-company-knowledge` | `/tickets`, `/nemesis` | All phases | Searches Confluence/internal knowledge base for Razorpay runbooks, standards docs, and historical decisions. Complements @Slash for non-Slack knowledge. |
+
+---
+
+### 10.3 Skill Invocation Chain
+
+Skills invoke each other via the `Skill` tool. Each Skill() call has a documented
+fallback: external Razorpay skill → Brain context → @Slash. If the `Skill` tool fails
+to resolve at runtime, the calling skill follows the skill's protocol directly.
 
 ```
 /nemesis (orchestrator)
-    └── invokes: Skill("franco", "<source>")        # data collection
-    └── invokes: Skill("slash", "<question>")       # @Slash queries
-    └── invokes: Skill("engineering:code-review")   # code review
-    └── invokes: Skill("engineering:system-design") # system design validation
-    └── invokes: Skill("pre-mortem", "<context>")   # risk analysis
-    └── invokes: Skill("implement", "<slug>")       # code generation
+  Phase 1 (Ideation):
+    ├── Skill("product-management:brainstorm", "<brief + brain>")
+    ├── Skill("compass:reviewing-strategy", "<overview>")
+    ├── Skill("franco", "<slack_url>")            # data collection
+    └── Skill("designer", "flow <as-is>")         # overview.html diagram
+
+  Phase 2 (Solutioning):
+    ├── Skill("slash", "<pre-solution queries>")   # @Slash oracle (BEFORE)
+    ├── Skill("compass:reviewing-strategy", "<solution>")
+    ├── Skill("compass:razorpay-api-review", "<API changes>")
+    ├── Skill("engineering:system-design", "<arch>")
+    ├── Skill("engineering:architecture", "<services>")
+    ├── Skill("engineering:code-review", "<proposed changes>")
+    ├── Skill("pre-mortem", "<change summary>")
+    ├── Skill("engineering:testing-strategy", "<changed functions>")
+    └── Skill("slash", "<post-solution validation>") # @Slash oracle (AFTER)
+
+  Phase 3 (Tech Spec):
+    ├── Skill("tech-spec-generator", "<overview + solution>")
+    ├── Skill("slash", "<3-5 fact-check queries>")
+    ├── Skill("designer", "arch <system architecture>")  # Section 6 diagram
+    └── Skill("engineering:documentation", "<spec>")
+
+  Phase 4 (Implementation):
+    ├── Skill("engineering:code-review", "<generated diff>")
+    ├── Skill("engineering:testing-strategy", "<changes>")
+    ├── Skill("quality-engineer", "<tests + changes>")
+    ├── Skill("slit-generator-v2", "<Go service flow>")
+    ├── Skill("engineering:deploy-checklist", "<services + risks>")
+    └── Skill("gatekeeper", "<PR URL + checklist>")
+
+  Phase 5 (E2E):
+    ├── Skill("quality-engineer", "<failing gate + relevant code>")
+    └── Skill("implement", "fix <slug>")            # auto-fix on failure
+
+/review (standalone):
+    ├── Skill("engineering:code-review", "<diff>")
+    ├── Skill("compass:razorpay-api-review", "<contracts>")
+    ├── Skill("engineering:testing-strategy", "<tests>")
+    ├── Skill("engineering:deploy-checklist", "<services>")
+    ├── Skill("pre-mortem", "<risk surface>")
+    └── Skill("engineering:tech-debt", "<context>")
+
+/tickets (standalone):
+    ├── Skill("atlassian:spec-to-backlog", "<spec>")
+    ├── Skill("atlassian:triage-issue", "<ticket>")
+    ├── Skill("atlassian:generate-status-report", "<milestone>")
+    ├── Skill("atlassian:capture-tasks-from-meeting-notes", "<notes>")
+    └── Skill("atlassian:search-company-knowledge", "<query>")
 ```
 
-### The 15 Sub-Agents
+**Fallback chain** (every Razorpay Compass skill call):
+```
+Skill("engineering:code-review") fails to resolve?
+  → Apply Brain context_for() for the same code path
+  → Then query @Slash: "what are the review standards for this area?"
+  → Then apply manual Razorpay conventions from memory
+```
 
-Parallel sub-agents are spawned for heavy-lift work:
+---
 
-| Agent | Spawned By | Purpose |
-|-------|-----------|---------|
-| `brain-ingest-agent` | Brain, Franco | Parallel multi-source fetch without blocking |
-| `nemesis-agent` | Nemesis | Heavy analysis, multi-skill pipelines |
-| `project-expert-agent` | Solutioning | Deep codebase read per service |
-| `review-agent` | Review | Parallel code review (one per dimension) |
-| `silencer-agent` | Silencer | Parallel section generation for Google Docs |
-| `standup-agent` | Standup | Parallel data collection (Slack + Cal + GitHub) |
-| `implement-agent` | Implement | Per-service code generation |
-| `test-gen-agent` | Implement | Test generation per service |
-| `devtest-runner-agent` | DevTest | S2S execution with per-curl confirmation |
-| `devtest-observer-agent` | DevTest | Parallel pod log watcher |
-| `learn-agent` | Brain | Batch knowledge flush |
-| `e2e-expert-agent` | E2E | E2E test design specialist |
+### 10.4 MCP Superpowers — Complete Reference
+
+Every MCP is invoked **only by the LLM skill layer**, never by Python (`brain/`). The
+Python layer operates solely on the Brain API. MCPs are the sensory organs; the Brain
+is the memory. This boundary is enforced by design.
+
+#### Communication & Collaboration
+
+| MCP | Prefix | Tools | Used By | What Nemesis Uses It For |
+|-----|--------|-------|---------|--------------------------|
+| **Slack (Primary)** | `mcp__plugin_compass_slack-mcp__` | 12 | Franco, Slash, Standup, DevTest | Channel messages, thread replies, search, send message. **Always used over secondary.** |
+| **Slack (Secondary)** | `mcp__a82ca449__` | 16 | Designer, Standup | Canvas creation/reading, rich thread reads, reactions. Secondary because it requires extra approval. |
+| **Gmail** | `mcp__f22d0c2f__` | 11 | Franco, Standup | Search threads, get full thread body, draft, label, manage labels. |
+| **Google Calendar** | `mcp__d285de92__` | 8 | Standup, Plan | List events, create meeting, update event, suggest time, respond to invite. |
+
+Key Slack tools:
+```
+mcp__plugin_compass_slack-mcp__slack_get_channel_messages   # fetch channel history
+mcp__plugin_compass_slack-mcp__slack_get_thread_replies     # full thread with all replies
+mcp__plugin_compass_slack-mcp__slack_search_messages        # search across all channels
+mcp__plugin_compass_slack-mcp__slack_send_message           # send to C0B3U3Z2JG1 for @Slash
+mcp__plugin_compass_slack-mcp__slack_get_channels           # resolve channel IDs
+mcp__plugin_compass_slack-mcp__slack_get_users              # resolve user IDs
+mcp__plugin_compass_slack-mcp__slack_add_reaction           # react to @Slash ack messages
+mcp__a82ca449__slack_create_canvas                          # create Slack canvas (secondary)
+mcp__a82ca449__slack_read_thread                            # rich thread read (secondary)
+```
+
+Key Gmail tools:
+```
+mcp__f22d0c2f__search_threads     # search by query (e.g., "from:saurav.k label:payments")
+mcp__f22d0c2f__get_thread         # full thread with all messages
+mcp__f22d0c2f__create_draft       # draft reply or new thread
+mcp__f22d0c2f__label_thread       # apply label
+mcp__f22d0c2f__list_labels        # list all labels
+```
+
+#### Document & Drive
+
+| MCP | Prefix | Tools | Used By | What Nemesis Uses It For |
+|-----|--------|-------|---------|--------------------------|
+| **Google Drive** | `mcp__e20283d0__` | 7 | Franco, Brain | Read file content, search, copy, get metadata, get permissions. |
+| **Google Workspace** | `mcp__plugin_compass_google-workspace__` | 80+ | Silencer, Explain, Standup, Plan, Tickets | Google Docs (create, read, batch-update), Sheets (read values), Tasks (list, create, update), Drive share URL, insert image into Doc. |
+
+Key Drive tools:
+```
+mcp__e20283d0__read_file_content      # read .md/.docx/.txt from Drive
+mcp__e20283d0__search_files           # search by name/type in Drive folder
+mcp__e20283d0__copy_file              # copy template → new doc
+mcp__e20283d0__get_file_metadata      # get file ID, mimeType, lastModified
+mcp__e20283d0__create_file            # create new Drive file
+```
+
+Key Workspace tools:
+```
+mcp__plugin_compass_google-workspace__create_doc            # create new Google Doc
+mcp__plugin_compass_google-workspace__get_doc_content       # read doc content
+mcp__plugin_compass_google-workspace__batch_update_doc      # insert sections, headings, tables
+mcp__plugin_compass_google-workspace__insert_doc_image      # embed image in doc
+mcp__plugin_compass_google-workspace__get_drive_share_url   # get shareable link
+mcp__plugin_compass_google-workspace__share_drive_file      # set share permissions
+mcp__plugin_compass_google-workspace__list_task_lists       # Google Tasks lists
+mcp__plugin_compass_google-workspace__list_tasks            # tasks in a list
+mcp__plugin_compass_google-workspace__create_task           # create task with due date
+mcp__plugin_compass_google-workspace__update_task           # mark complete, update notes
+mcp__plugin_compass_google-workspace__read_sheet_values     # read spreadsheet range
+mcp__plugin_compass_google-workspace__get_presentation      # read Slides deck
+```
+
+#### Design & Visualization
+
+| MCP | Prefix | Tools | Priority | What Nemesis Uses It For |
+|-----|--------|-------|----------|--------------------------|
+| **Canva** | `mcp__dde94166__` | 30+ | **PRIMARY** | Professional polished architecture diagrams, tech spec visuals, service maps. Higher quality than Mermaid. |
+| **Mermaid** | `mcp__7428c252__` | 1 | Secondary | Structural diagrams: sequence, ER, class, Gantt. Quick, text-based. |
+| **Excalidraw** | `mcp__3000b99d__` | 2 | Whiteboard | Free-form brainstorm visuals, rough sketches. |
+| **Figma** | `mcp__f39bd90b__` | 15 | Reference | Import Figma designs as reference, export component specs, Blade code connect. |
+| **Blade MCP** | `mcp__plugin_compass_blade-mcp__` | 8 | UI Components | Razorpay Blade design system — component docs, patterns, Figma-to-code. |
+
+Key Canva tools:
+```
+mcp__dde94166__generate-design              # generate design from text prompt
+mcp__dde94166__generate-design-structured   # generate with explicit structure/layout
+mcp__dde94166__export-design               # export as PNG/PDF/SVG
+mcp__dde94166__start-editing-transaction    # begin iterative edit session
+mcp__dde94166__perform-editing-operations   # apply edits (text, color, layout)
+mcp__dde94166__commit-editing-transaction   # save edits
+mcp__dde94166__cancel-editing-transaction   # discard edits
+mcp__dde94166__get-design                  # get existing design
+mcp__dde94166__get-design-content          # read design elements
+mcp__dde94166__copy-design                 # fork a design
+mcp__dde94166__import-design-from-url      # import external design
+mcp__dde94166__get-assets                  # list brand assets
+mcp__dde94166__list-brand-kits             # list brand kits
+```
+
+Mermaid tool:
+```
+mcp__7428c252__validate_and_render_mermaid_diagram   # validate + render to PNG
+```
+
+Excalidraw tools:
+```
+mcp__3000b99d__create_view    # create whiteboard scene
+mcp__3000b99d__read_me        # get available scene templates
+```
+
+Key Figma tools:
+```
+mcp__f39bd90b__get_design_context     # get full Figma file component tree
+mcp__f39bd90b__get_screenshot         # screenshot a specific frame/component
+mcp__f39bd90b__get_libraries          # list shared component libraries
+mcp__f39bd90b__search_design_system   # search components by name
+mcp__f39bd90b__generate_diagram       # generate architecture diagram from Figma
+mcp__f39bd90b__get_variable_defs      # design tokens (colors, spacing, typography)
+```
+
+Key Blade tools:
+```
+mcp__plugin_compass_blade-mcp__get_blade_component_docs   # component API docs
+mcp__plugin_compass_blade-mcp__get_blade_general_docs     # general Blade docs
+mcp__plugin_compass_blade-mcp__get_blade_pattern_docs     # UI pattern docs
+mcp__plugin_compass_blade-mcp__get_figma_to_code          # Figma → Blade component code
+mcp__plugin_compass_blade-mcp__get_blade_changelog        # recent Blade updates
+```
+
+#### Infrastructure & Testing
+
+| MCP | Prefix | Tools | Used By | What Nemesis Uses It For |
+|-----|--------|-------|---------|--------------------------|
+| **Kubernetes** | `mcp__Kubernetes_MCP_Server__` | 20 | DevTest, E2E | Deploy to devstack, get pod status, stream logs, exec in pod, apply YAML. |
+| **E2E Orchestrator** | `mcp__e2e-orchestrator__` | 12 | DevTest, E2E | Create/run/list test cases, trigger ROAST runs, get execution results, ingest coverage. |
+| **Watchtower** | `mcp__watchtower-mcp__` | 1+ | DB Validator | Deploy tracker — recent deployments, Splitz flag changes, DCS config changes, terminal/endpoint changes. **Status: PENDING credentials** (obtain from `#slash-dev`). |
+| **Claude Preview** | `mcp__Claude_Preview__` | 12 | Internal dev | Browser preview for frontend verification — screenshot, snapshot, click, fill, logs, network. |
+
+Key Kubernetes tools:
+```
+mcp__Kubernetes_MCP_Server__kubectl_get        # get pods/deployments/services
+mcp__Kubernetes_MCP_Server__kubectl_logs       # stream pod logs
+mcp__Kubernetes_MCP_Server__kubectl_apply      # apply YAML manifest
+mcp__Kubernetes_MCP_Server__kubectl_describe   # describe resource
+mcp__Kubernetes_MCP_Server__kubectl_rollout    # rollout status/restart
+mcp__Kubernetes_MCP_Server__kubectl_scale      # scale deployment
+mcp__Kubernetes_MCP_Server__exec_in_pod        # exec command in pod
+mcp__Kubernetes_MCP_Server__port_forward       # port-forward for local testing
+mcp__Kubernetes_MCP_Server__install_helm_chart # install/upgrade helm chart
+mcp__Kubernetes_MCP_Server__kubectl_context    # switch kube context
+```
+
+Key E2E Orchestrator tools:
+```
+mcp__e2e-orchestrator__e2e_create_testcase      # define a new test case
+mcp__e2e-orchestrator__e2e_run_testcase         # run a single test case
+mcp__e2e-orchestrator__e2e_run_suite            # run a full test suite
+mcp__e2e-orchestrator__e2e_run_roast            # trigger ROAST performance test
+mcp__e2e-orchestrator__e2e_run_local            # run test against local devstack
+mcp__e2e-orchestrator__e2e_run_service_pipeline # run service pipeline E2E
+mcp__e2e-orchestrator__e2e_get_execution        # get test execution status/results
+mcp__e2e-orchestrator__e2e_get_execution_history# historical test results
+mcp__e2e-orchestrator__e2e_list_testcases       # list existing test cases
+mcp__e2e-orchestrator__e2e_ingest_results       # push results to Brain
+mcp__e2e-orchestrator__e2e_detect_local_method  # detect available test methods
+mcp__e2e-orchestrator__e2e_health_check         # check orchestrator health
+```
+
+Watchtower tool:
+```
+mcp__watchtower-mcp__query    # query deploy/config change history
+```
+> @Slash has Watchtower access via its MCP harness. Nemesis accesses it via @Slash
+> (`Skill("slash", "what changed on <service> in the last 24h?")`).
+> Direct `mcp__watchtower-mcp__query` requires credentials from `#slash-dev`.
+
+#### Document Generation (Office)
+
+| MCP | Prefix | Tools | Used By | What Nemesis Uses It For |
+|-----|--------|-------|---------|--------------------------|
+| **Word** | `mcp__Word__By_Anthropic__` | 9 | Doc | Create .docx, insert text, format, export PDF, save. Primary for `/doc` skill. |
+| **PowerPoint** | `mcp__PowerPoint__By_Anthropic__` | 10 | Designer | Create .pptx presentations, add slides, insert images, export PDF. |
+| **PDF Viewer** | `mcp__plugin_pdf-viewer_pdf__` | 9 | Franco, Explain | Display, read, interact with PDF docs (RFCs, runbooks, design docs). |
+
+Key Word tools:
+```
+mcp__Word__By_Anthropic___create_document    # create new .docx
+mcp__Word__By_Anthropic___open_document      # open existing .docx
+mcp__Word__By_Anthropic___insert_text        # insert paragraph/heading/table
+mcp__Word__By_Anthropic___format_text        # bold, italic, style
+mcp__Word__By_Anthropic___export_pdf         # export .docx → .pdf
+mcp__Word__By_Anthropic___save_document      # save changes
+```
+
+#### Scheduling & Notes
+
+| MCP | Prefix | Tools | Used By | What Nemesis Uses It For |
+|-----|--------|-------|---------|--------------------------|
+| **Scheduled Tasks** | `mcp__scheduled-tasks__` | 3 | Plan | Create recurring reminders, list active tasks, update task state. |
+| **Apple Notes** | `mcp__Read_and_Write_Apple_Notes__` | 4 | Plan | Quick scratch pad — add note, get content, list, update. |
+
+```
+mcp__scheduled-tasks__create_scheduled_task   # create cron-style reminder
+mcp__scheduled-tasks__list_scheduled_tasks    # list active scheduled tasks
+mcp__scheduled-tasks__update_scheduled_task   # update or cancel
+```
+
+#### MCP Priority Rules
+
+1. **Slack**: Always use primary (`mcp__plugin_compass_slack-mcp__*`). Secondary
+   (`mcp__a82ca449__*`) requires extra user approval per call — only use for canvas
+   creation or rich thread reads after explicit consent.
+
+2. **Diagrams**: Canva first (professional quality, supports iteration). Mermaid second
+   (structural, text-based, no edit cycle). Excalidraw only for brainstorm/whiteboard.
+
+3. **Google Docs**: Google Workspace (`mcp__plugin_compass_google-workspace__`) for
+   creating new docs. Drive (`mcp__e20283d0__`) for reading/searching existing files.
+
+4. **Channels by ID**: Always use Slack channel ID (e.g., `C0B3U3Z2JG1`), never search
+   by name. Name resolution is unreliable; IDs are stable.
+
+---
+
+### 10.5 Sub-Agents (15)
+
+Parallel sub-agents are spawned for heavy-lift or parallelizable work. Each agent is
+an independent Claude Code session with its own system prompt.
+
+| Agent | Spawned By | Parallelism | Purpose |
+|-------|-----------|------------|---------|
+| `nemesis-agent` | Nemesis | 1 per phase step | Heavy analysis, multi-skill pipelines, long code traces |
+| `project-expert-agent` | Solutioning | 1 per service | Deep codebase read; levels up expert XP in brain.db |
+| `brain-ingest-agent` | Brain, Franco | N per source batch | Parallel multi-source fetch without blocking main session |
+| `review-agent` | Review | 1 per dimension | Parallel code review — each agent covers one concern (bugs, perf, security, style) |
+| `silencer-agent` | Silencer | 2-3 per doc | Parallel section generation for 15-section tech spec Google Docs |
+| `standup-agent` | Standup | 1 per data source | Parallel data collection — Slack, Calendar, GitHub, Brain simultaneously |
+| `implement-agent` | Implement | 1 per service | Per-service code generation; reads solution.md, writes diffs, runs quality gates |
+| `test-gen-agent` | Implement | 1 per service | Unit test + SLIT test generation per service, matches existing repo patterns |
+| `devtest-runner-agent` | DevTest | 1 per scenario | S2S execution with per-curl human confirmation; saves request/response assets |
+| `devtest-observer-agent` | DevTest | 1 per pod | Parallel Kubernetes pod log watcher; classifies lines by trace code |
+| `e2e-argo-agent` | E2E | 1 per PR | Drives Argo pipeline for a single E2E PR; polls for completion |
+| `e2e-writer-agent` | E2E | 1 per test suite | Scaffolds ITF test suite in razorpay/end-to-end-tests from existing patterns |
+| `e2e-expert-agent` | E2E | 1 | E2E test design specialist — coverage gaps, generation, repair |
+| `learn-agent` | Brain | 1 per flush batch | Batch knowledge flush for 5+ learning items without blocking main session |
+| `scout-agent` | Nemesis (pre-Ideation) | 1 | Deep codebase reconnaissance — endpoints, data paths, Splitz gates, cross-service contracts |
+
+**Scout Agent** is notable: it runs BEFORE Phase 1 Ideation on complex features where
+the solution space is unclear. It performs end-to-end reconnaissance of the problem space
+and surfaces routing patterns, shared utilities, and cross-service contracts that Ideation
+then uses as pre-loaded context. This avoids the Ideation phase needing to do expensive
+grep-and-explore on its own.
 
 ---
 
@@ -1024,4 +1374,4 @@ brain/
 
 ---
 
-*Last updated: 2026-06-25 | Schema: v4.0 | Brain package: v2.0.0*
+*Last updated: 2026-06-25 | Schema: v4.0 | Brain package: v2.0.0 | 19 native skills | 16 Razorpay Compass skills | 19 MCP families | 15 sub-agents*
